@@ -19,3 +19,12 @@ sed -i.bak -e 's/>//g' decoys.txt   # prepare decoys
 cat $hg38_gencode_transcriptome_fasta $hg38_gencode_genome_fasta > gentrome.fa
 salmon index -t gentrome.fa -d decoys.txt -p 12 -i transcriptome_selective_alignment_index_salmon --gencode
 
+
+# Index generation for single-cell multiome (include intronic reads, see: https://www.biostars.org/p/468180/)
+pip install kb-python
+kb ref -i kallisto_nuclei_introns_index.idx -g kallisto_nuclei_introns_t2g.txt -f1 kallisto_nuclei_introns_cdna.fa -f2 kallisto_nuclei_introns_intron.fa -c1 kallisto_nuclei_introns_cdna_t2c.txt -c2 kallisto_nuclei_introns_t2c.txt --workflow lamanno -n 8 $hg38_gencode_genome_fasta $hg38_gencode_gtf
+cat kallisto_nuclei_introns_cdna.fa kallisto_nuclei_introns_intron.fa > kallisto_nuclei_cDNA_introns_ALL.fa
+kallisto index -i kallisto_nuclei_cDNA_introns.idx kallisto_nuclei_cDNA_introns_ALL.fa
+
+
+
