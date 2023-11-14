@@ -8,7 +8,7 @@ cd /home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/
 cellranger mkref --genome=GRCh38_CellRanger_GENCODE_ref --fasta=$hg38_gencode_genome_fasta  --genes=$hg38_gencode_gtf
 
 #STARsolo
-STAR  --runMode genomeGenerate  --genomeDir $genomeDir  --genomeFastaFiles $hg38_gencode_genome_fasta --sjdbGTFfile $hg38_gencode_gtf   --sjdbOverhang 100
+STAR  --runMode genomeGenerate  --genomeDir star_indices  --genomeFastaFiles $hg38_gencode_genome_fasta --sjdbGTFfile $hg38_gencode_gtf   --sjdbOverhang 100
 
 # Kallisto
 kallisto index -i transcriptome_index_kallisto.idx $hg38_gencode_transcriptome_fasta
