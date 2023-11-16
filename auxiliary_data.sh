@@ -4,3 +4,6 @@ wget https://github.com/10XGenomics/cellranger/raw/master/lib/python/cellranger/
 
 cd ~/dato-activo/reference.genomes_kike/GRCh38/gencode/
 cat gencode.v37.annotation.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/gene_type.*//p' | sed 's/;//g' | sed 's/transcript_id //g'  | sed 's/"//g' | sed -e 's/ /\t/g' | awk '{print $2 "\t" $1}'  | grep '^ENST' | uniq > tr2g.tsv
+
+cd ~/dato-activo/reference.genomes_kike/GRCm39/gencode/
+cat gencode.v37.annotation.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/gene_type.*//p' | sed 's/;//g' | sed 's/transcript_id //g'  | sed 's/"//g' | sed -e 's/ /\t/g' | awk '{print $2 "\t" $1}'  | grep '^ENSM' | uniq > tr2g.tsv
