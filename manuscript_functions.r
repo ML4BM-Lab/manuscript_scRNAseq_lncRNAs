@@ -117,6 +117,32 @@ marker_umaps <- function(sce,clusters, annotation, subclustering = F, cells_subc
   return(Idents(a))
 }
 
+kallisto_processing <- function(kallisto_dir,name, mito_gene)
+{
+    kallisto_data <- BUSpaRse::read_count_output(kallisto_dir, name = name)
+    kallisto <- CreateSeuratObject(kallisto_data, project = "kallisto")
+    kallisto <- as.SingleCellExperiment(kallisto)
+    kallisto_sce <- qc_metrics(pipeline = kallisto, mitochondrial_ens_ids = mito_gene, ribosomal_ens_ids = ribosomal_ens_ids)
+
+    return(kallisto_sce)
+}
+
+cellRanger_processing <- function(cell_ranger_dir,mito_gene, multiplexing = F)
+{
+    cellRanger_data <- Read10X(data.dir = cell_ranger_dir, gene.column = 1)
+    if (multiplexing == T)
+    {
+        cellRanger <- CreateSeuratObject(cellRanger_data[[1]], project = "cellRanger")
+    }
+    else {
+       cellRanger <- CreateSeuratObject(cellRanger_data, project = "cellRanger")
+    }
+    cellRanger <- as.SingleCellExperiment(cellRanger)
+    cellRanger_sce <- qc_metrics(pipeline = cellRanger,mitochondrial_ens_ids = mito_gene, ribosomal_ens_ids = ribosomal_ens_ids)
+
+    return(cellRanger_sce)
+}
+
 
 
 
