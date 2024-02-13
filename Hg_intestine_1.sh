@@ -20,7 +20,7 @@ cd output_bus_transcriptome_150bp_onlyR2
 cat transcripts.txt | sed "s/|.*//" > transcripts_back.txt
 rm transcripts.txt
 mv transcripts_back.txt transcripts.txt
-cd output_bus_total_transcriptome
+cd output_bus_transcriptome_150bp_onlyR2
 mkdir bustools_results
 cd bustools_results
 bustools correct -w $TENxV3_WHITELIST -p ../output.bus | bustools sort -T temp/ -p - | bustools count -o cells_genes_NO_multimapping -g $TRANSCRIPTS_TO_GENES -e ../matrix.ec -t ../transcripts.txt --genecounts -
