@@ -143,6 +143,13 @@ cellRanger_processing <- function(cell_ranger_dir,mito_gene, multiplexing = F)
     return(cellRanger_sce)
 }
 
+# Function to generate the UpSet plots in the extended benchmarking
+comp_pct <- function(count, PANEL, cut) {
+  data.frame(count, PANEL, cut) %>% 
+    group_by(PANEL, cut) %>% 
+    mutate(pct = 100*count / sum(count)) %>% 
+    pull(pct)
+}
 
 
 
