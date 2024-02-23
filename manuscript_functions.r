@@ -1,5 +1,5 @@
 # Manuscript functions
-qc_metrics <- function(pipeline, mitochondrial_ens_ids, ribosomal_ens_ids )
+qc_metrics <- function(pipeline, mitochondrial_ens_ids )
 {
   sce <- pipeline  
   stats <- perCellQCMetrics(sce, subsets=list(Mito=which(rownames(sce)%in% mitochondrial_ens_ids)))
@@ -151,5 +151,19 @@ comp_pct <- function(count, PANEL, cut) {
     pull(pct)
 }
 
+
+wnn_clustering <- function(seurat_object)
+{
+    seurat_object <- RunTFIDF(seurat_object)
+    seurat_object <- FindTopFeatures(seurat_object, min.cutoff = 'q0')
+    seurat_object <- RunSVD(seurat_object)
+    seurat_object <- RunUMAP(seurat_object, reduction = 'lsi', dims = 2:50, reduction.name = "umap.atac", reduction.key = "atacUMAP_")
+    seurat_object <- FindMultiModalNeighbors(seurat_object, reduction.list = list("PCA", "lsi"), dims.list = list(1:50, 2:50))
+    seurat_object <- RunUMAP(seurat_object, nn.name = "weighted.nn", reduction.name = "wnn.umap", reduction.key = "wnnUMAP_")
+    seurat_object <- FindClusters(seurat_object, graph.name = "wsnn", algorithm = 3, verbose = FALSE)
+    DefaultAssay(seurat_object) <- "RNA"
+    seurat_object_sce <- as.SingleCellExperiment(seurat_object)
+    return(list(seurat_object,seurat_object_sce))
+}
 
 
