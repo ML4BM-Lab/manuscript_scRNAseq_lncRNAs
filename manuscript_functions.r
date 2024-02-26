@@ -113,7 +113,7 @@ marker_umaps <- function(sce,clusters, annotation, subclustering = F, cells_subc
   #data_percentage <- (100*table(sce$cell_types)) / sum(table(sce$cell_types))
   #f <- melt(data_percentage)
   #print(ggplot(f,aes(Var.1,value))+geom_bar(stat="identity", position = "stack") +ggtitle(title))
-  print(DimPlot(a, reduction = reduction, label = TRUE, pt.size = 0.3, repel = T,label.size = 5, cols = c("#c8723e","#9071c7","#84a142","#cb547e","#4daf95")) +ggtitle(title))
+  print(DimPlot(a, reduction = reduction, label = TRUE, pt.size = 0.3, repel = T,label.size = 5) +ggtitle(title))
   return(Idents(a))
 }
 
@@ -125,6 +125,15 @@ kallisto_processing <- function(kallisto_dir,name, mito_gene)
     kallisto_sce <- qc_metrics(pipeline = kallisto, mitochondrial_ens_ids = mito_gene, ribosomal_ens_ids = ribosomal_ens_ids)
 
     return(kallisto_sce)
+}
+
+test_match_order <- function(x,y) {
+
+if (all(x==y)) print('Perfect match in same order')
+
+if (!all(x==y) && all(sort(x)==sort(y))) print('Perfect match in wrong order')
+
+if (!all(x==y) && !all(sort(x)==sort(y))) print('No match')
 }
 
 cellRanger_processing <- function(cell_ranger_dir,mito_gene, multiplexing = F)
@@ -165,5 +174,62 @@ wnn_clustering <- function(seurat_object)
     seurat_object_sce <- as.SingleCellExperiment(seurat_object)
     return(list(seurat_object,seurat_object_sce))
 }
+
+boxplot_nuclei_scMULTIOME <- function(input_RDS)
+{
+    common_expressed_genes_threshold <- readRDS(input_RDS)
+    cellRanger_ATAC_expressed_genes_threshold <- common_expressed_genes_threshold[["cellRanger_ATAC"]]
+    kallisto_ATAC_expressed_genes_threshold <- common_expressed_genes_threshold[["kallisto_nuclei_ATAC"]]
+    cellRanger_ATAC_expressed_genes_threshold_lncRNAs <- common_expressed_genes_threshold[["cellRanger_nuclei_ATAC_lncRNAs"]]
+    kallisto_ATAC_expressed_genes_threshold_lncRNAs <- common_expressed_genes_threshold[["kallisto_nuclei_ATAC_lncRNAs"]]
+    cellRanger_ATAC_expressed_genes_threshold_PCs_genes <- common_expressed_genes_threshold[["cellRanger_nuclei_ATAC_PCs_genes"]]
+    kallisto_ATAC_expressed_genes_threshold_PCs_genes <- common_expressed_genes_threshold[["kallisto_nuclei_ATAC_PCs_genes"]]
+
+    df_threshold <- data.frame(pipeline = c(rep("Kallisto",length(kallisto_ATAC_expressed_genes_threshold)),rep("Cell Ranger",length(cellRanger_ATAC_expressed_genes_threshold)) ),common_expression = c(kallisto_ATAC_expressed_genes_threshold,cellRanger_ATAC_expressed_genes_threshold),common_expression_lncRNAs = c(kallisto_ATAC_expressed_genes_threshold_lncRNAs,cellRanger_ATAC_expressed_genes_threshold_lncRNAs), common_expression_PC_genes = c(kallisto_ATAC_expressed_genes_threshold_PCs_genes, cellRanger_ATAC_expressed_genes_threshold_PCs_genes))
+    aux <- gsub("validations_paper/common_expressed_genes_threshold_","t",input_RDS)
+    df_threshold$threshold <- gsub(".rds","",aux)
+
+    p <- return(df_threshold)
+}
+
+odds_ratio_genes <- function(input_RDS, gene.activities)
+{
+  common_expressed_genes_threshold <- readRDS(input_RDS)
+  cellRanger_ATAC_expressed_genes_threshold <- common_expressed_genes_threshold[["cellRanger_ATAC"]]
+  kallisto_ATAC_expressed_genes_threshold <- common_expressed_genes_threshold[["kallisto_nuclei_ATAC"]]
+  cellRanger_ATAC_expressed_genes_threshold_lncRNAs <- common_expressed_genes_threshold[["cellRanger_nuclei_ATAC_lncRNAs"]]
+  kallisto_ATAC_expressed_genes_threshold_lncRNAs <- common_expressed_genes_threshold[["kallisto_nuclei_ATAC_lncRNAs"]]
+  cellRanger_ATAC_expressed_genes_threshold_PCs_genes <- common_expressed_genes_threshold[["cellRanger_nuclei_ATAC_PCs_genes"]]
+  kallisto_ATAC_expressed_genes_threshold_PCs_genes <- common_expressed_genes_threshold[["kallisto_nuclei_ATAC_PCs_genes"]]
+
+  OR_all <- c()
+  OR_lncRNAs <- c()
+  OR_PCs_genes <- c()
+   
+  for(i in 1:length(cellRanger_ATAC_expressed_genes_threshold))
+    {
+      print(i)
+
+      # with the if statements I am ignoring huge True Negatives
+      if(cellRanger_ATAC_expressed_genes_threshold[i] != 0 | kallisto_ATAC_expressed_genes_threshold[i] != 0 )
+      {
+        m <- matrix(c(kallisto_ATAC_expressed_genes_threshold[i] + 0.5,(nrow(gene.activities) +0.5) - kallisto_ATAC_expressed_genes_threshold[i],cellRanger_ATAC_expressed_genes_threshold[i] + 0.5,(nrow(gene.activities) +0.5) - cellRanger_ATAC_expressed_genes_threshold[i] ), ncol = 2)
+        OR_all <- c(OR_all,log2((m[1,1]/m[2,1])/(m[1,2]/m[2,2])))
+      }
+      if(cellRanger_ATAC_expressed_genes_threshold_lncRNAs[i] != 0 | kallisto_ATAC_expressed_genes_threshold_lncRNAs[i] != 0 )
+      {
+        m <- matrix(c(kallisto_ATAC_expressed_genes_threshold_lncRNAs[i] + 0.5,(nrow(gene.activities) +0.5) - kallisto_ATAC_expressed_genes_threshold_lncRNAs[i],cellRanger_ATAC_expressed_genes_threshold_lncRNAs[i] + 0.5,(nrow(gene.activities) +0.5) - cellRanger_ATAC_expressed_genes_threshold_lncRNAs[i] ), ncol = 2)
+        OR_lncRNAs <- c(OR_lncRNAs,log2((m[1,1]/m[2,1])/(m[1,2]/m[2,2])))
+      }
+      if(cellRanger_ATAC_expressed_genes_threshold_PCs_genes[i] != 0 | kallisto_ATAC_expressed_genes_threshold_PCs_genes[i] != 0 )
+      {
+        m <- matrix(c(kallisto_ATAC_expressed_genes_threshold_PCs_genes[i] + 0.5,(nrow(gene.activities) +0.5) - kallisto_ATAC_expressed_genes_threshold_PCs_genes[i],cellRanger_ATAC_expressed_genes_threshold_PCs_genes[i] + 0.5,(nrow(gene.activities) +0.5) - cellRanger_ATAC_expressed_genes_threshold_PCs_genes[i] ), ncol = 2)
+        OR_PCs_genes <- c(OR_PCs_genes,log2((m[1,1]/m[2,1])/(m[1,2]/m[2,2])))
+      }
+    }
+    odds_results <- list(OR_all, OR_lncRNAs , OR_PCs_genes)
+    return(odds_results)
+}
+
 
 
