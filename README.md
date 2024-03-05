@@ -1,4 +1,4 @@
-# manuscript_scRNAseq_lncRNAs
+# Uncovering functional lncRNAs by scRNA-seq with ELATUS
 Repository containing all the scripts and code necessary for generating the results in the manuscript [Uncovering functional lncRNAs by scRNA-seq with ELATUS](https://www.biorxiv.org/content/10.1101/2024.01.26.577344v1).
 
 # System Requirements
