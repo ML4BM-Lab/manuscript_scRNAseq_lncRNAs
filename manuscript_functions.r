@@ -231,5 +231,74 @@ odds_ratio_genes <- function(input_RDS, gene.activities)
     return(odds_results)
 }
 
+# Characterization functions
+# Get exonic length for each transcript. 
+exonic_length_transcript <- function(gtf)
+{
+    exons = gtf[gtf$type=="exon",]
+    current_gene <- exons$gene_id[1]
+    current_transcript <- exons$transcript_id[1]
+    length_transcript = 0
+    t_lengths_all <- c()
+    transcripts_all <- c()
+    genes_all <- c()
+    genes_names_all <- c()
+
+    for (i in 1:nrow(exons))
+    {
+        print(i)
+        gene_id <- exons$gene_id[i]
+        transcript_id <- exons$transcript_id[i]
+
+        if(current_transcript == transcript_id)
+        {
+            length_transcript <- exons$width[i] + length_transcript
+        }
+        else
+        {
+            t_lengths_all <- c(t_lengths_all, length_transcript)
+            current_transcript <- transcript_id
+
+            length_transcript <- exons$width[i]
+            transcripts_all <- c(transcripts_all, exons$transcript_id[i-1])
+            genes_all <- c(genes_all, exons$gene_id[i-1])
+            genes_names_all <- c(genes_names_all, exons$gene_name[i-1])
+        }
+    }
+    all_info <- as.data.frame(cbind(genes_all,genes_names_all,transcripts_all,t_lengths_all))
+    #add last isoform manually
+    last_isoform <- exons[nrow(exons),]
+    all_info <- rbind(all_info,c(last_isoform$gene_id,last_isoform$gene_name,last_isoform$transcript_id,last_isoform$width))
+    return(all_info)
+}
+
+# Get longest transcript for every gene and their exon coordinates
+get_longest_transcript <- function(all_info_path)
+{
+    all_info <- readRDS(all_info_path)
+    longest_transcripts <- all_info[1,]
+    for (i in unique(all_info$genes_all))
+    {
+    print(nrow(longest_transcripts))
+    transcripts <- all_info[all_info$genes_all == i,]
+    longest_transcripts <- rbind(longest_transcripts,transcripts[which.max(transcripts$t_lengths_all),])
+    }
+    longest_transcripts_final <- longest_transcripts[-1,]
+    return(longest_transcripts_final)
+}
+
+# get for every transcript the list of coordinates of its exons
+transcripts_exons_coordinates <- function(gtf_path, longest_transcripts)
+{
+    gtf = rtracklayer::import(gtf_path)
+    exons = gtf[gtf$type=="exon"]
+    exons_longest_transcripts <- exons[which(exons$transcript_id %in% longest_transcripts$transcripts_all),]
+    aux <- as.data.frame(exons_longest_transcripts)
+    total_exon_length <- abs(aux$start-1-aux$end)
+    exons_longest_transcripts$total_exon_length <- total_exon_length
+    return(exons_longest_transcripts)
+}
+
+
 
 
