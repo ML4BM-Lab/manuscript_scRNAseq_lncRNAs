@@ -1,6 +1,6 @@
 ########################################################### Generic #################################################################################################
 #####################################################################################################################################################################
-libraries <- c("Seurat","patchwork", "tximport", "ggplot2", "scran" , "scater", "SingleCellExperiment", "BUSpaRse", "DropletUtils", "RColorBrewer", "cluster", "UpSetR","scRNAseq", "ggpubr","scDblFinder","reshape","ggupset","dplyr")
+libraries <- c("Seurat","patchwork", "tximport", "ggplot2", "scran" , "scater", "SingleCellExperiment", "BUSpaRse", "DropletUtils", "RColorBrewer", "cluster", "UpSetR","scRNAseq", "ggpubr","scDblFinder","reshape","ggupset","dplyr","readxl")
 
 lapply(libraries, require, character.only = TRUE)
 # Import gtf annotation & setWD, source functions
@@ -59,8 +59,24 @@ longest_transcripts_mouse <- readRDS("longest_transcripts_mouse.RDS")
 # get for every transcript the list of coordinates of its exons
 exons_longest_transcripts_human <- transcripts_exons_coordinates(human_gencode_path, longest_transcripts_human)
 saveRDS(exons_longest_transcripts_human, "/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/exons_longest_transcripts.rds")
+exons_longest_transcripts_human <- readRDS("/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/exons_longest_transcripts.rds")
+
 exons_longest_transcripts_mouse <- transcripts_exons_coordinates(mouse_gencode_path, longest_transcripts_mouse)
 saveRDS(exons_longest_transcripts_mouse, "/home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode/exons_longest_transcripts.rds")
+exons_longest_transcripts_mouse <- readRDS("/home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode/exons_longest_transcripts.rds")
+
+# Get the number of exons for the longest isoform of each gene
+n_exons_human <- number_of_exons_longest_isoform(hg38_ensembl_gtf, longest_transcripts_human)
+saveRDS(n_exons_human, "number_exons_human.RDS")
+n_exons_human <- readRDS("number_exons_human.RDS")
+
+n_exons_mouse <- number_of_exons_longest_isoform(mouse_gtf, longest_transcripts_mouse)
+saveRDS(n_exons_mouse, "number_exons_mouse.RDS")
+n_exons_mouse <- readRDS("number_exons_mouse.RDS")
+
+# load crispr data
+#CRISPR public data from paper https://www.science.org/doi/10.1126/science.aah7111 (~500 lncRNAs proved to participate in cell growth)
+crispr_data <- readRDS("/home/egonie/kike/databases/hits_info_Liu_science_2015_ensids.rds")
 
 
 ############################################################################################################################

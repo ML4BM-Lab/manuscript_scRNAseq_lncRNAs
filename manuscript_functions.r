@@ -299,6 +299,33 @@ transcripts_exons_coordinates <- function(gtf_path, longest_transcripts)
     return(exons_longest_transcripts)
 }
 
+# Get the number of exons for the longest isoform of each gene
+number_of_exons_longest_isoform <- function(gtf, longest_transcripts)
+{
+    exons = gtf[gtf$type=="exon",]
+    number_exons <- c()
+    gene_id <- c()
+    transcript_id <- c()
+    g_n <- exons[,12]
+    g_i <- exons[,10]
+    gene_name <- c()
+    for (i in unique(exons$transcript_id))
+    { 
+        if (i %in% longest_transcripts$transcripts_all)
+        {
+            number_exons <- c(number_exons,nrow(exons[exons$transcript_id==i,]))
+            transcript_id <- c(transcript_id,i)
+            gene_id <- c(gene_id,unique(g_i[exons$transcript_id==i]))
+            gene_name <- c(gene_name,unique(g_n[exons$transcript_id==i]))
+            print(length(number_exons))
+        }
+    }
+    n_exons_gene <- as.data.frame(cbind(gene_id,gene_name,transcript_id,number_exons))
+    colnames(n_exons_gene) <- c("gene_id","gene_exons","transcript_id","number_exons")
+
+    return(n_exons_gene)
+}
+
 
 
 
