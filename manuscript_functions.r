@@ -326,6 +326,109 @@ number_of_exons_longest_isoform <- function(gtf, longest_transcripts)
     return(n_exons_gene)
 }
 
+length_distributions <- function(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names, protein_coding_names,longest_transcripts,gene_name="gene_name")
+{
+  final_df <- data.frame(matrix(ncol = 4, nrow = 0))
+  colnames(final_df) <- c("features","t_lengths_all","biotype","Threshold")
+  for (j in 1:length(threshold_minumun_gene_counts_v))
+  {
+    threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+    threshold_cells_detected <- threshold_cells_detected_v[j]
+    print(paste("Threshold of minimun expression:",threshold_minumun_gene_counts))
 
+    kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+    # Uniquely vs common
+    input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+    candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+    common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+    if(gene_name=="gene_name")
+    {
+      longest_transcripts_lncRNAs <- longest_transcripts[longest_transcripts$genes_names_all %in% lncrna_names,]
+      longest_transcripts_ex_lncRNAs <- longest_transcripts_lncRNAs[longest_transcripts_lncRNAs$genes_names_all %in% candidates_kallisto,]
+      longest_transcripts_common_lncRNAs <- longest_transcripts_lncRNAs[longest_transcripts_lncRNAs$genes_names_all %in% common_genes,]
+
+      longest_transcripts_PCs <- longest_transcripts[longest_transcripts$genes_names_all %in% protein_coding_names,]
+      longest_transcripts_ex_PCs <- longest_transcripts_PCs[longest_transcripts_PCs$genes_names_all %in% candidates_kallisto,]
+      longest_transcripts_common_PCs <- longest_transcripts_PCs[longest_transcripts_PCs$genes_names_all %in% common_genes,]
+      
+    }
+    else
+    {
+      longest_transcripts_lncRNAs <- longest_transcripts[longest_transcripts$genes_all %in% lncrna_names,]
+      longest_transcripts_ex_lncRNAs <- longest_transcripts_lncRNAs[longest_transcripts_lncRNAs$genes_all %in% candidates_kallisto,]
+      longest_transcripts_common_lncRNAs <- longest_transcripts_lncRNAs[longest_transcripts_lncRNAs$genes_all %in% common_genes,]
+
+      longest_transcripts_PCs <- longest_transcripts[longest_transcripts$genes_all %in% protein_coding_names,]
+      longest_transcripts_ex_PCs <- longest_transcripts_PCs[longest_transcripts_PCs$genes_all %in% candidates_kallisto,]
+      longest_transcripts_common_PCs <- longest_transcripts_PCs[longest_transcripts_PCs$genes_all %in% common_genes,]
+    }
+    all_lncRNAs <- data.frame(features = c(rep("exclusive_kallisto",nrow(longest_transcripts_ex_lncRNAs)),rep("common",nrow(longest_transcripts_common_lncRNAs))), t_lengths_all=c(as.numeric(longest_transcripts_ex_lncRNAs$t_lengths_all),as.numeric(longest_transcripts_common_lncRNAs$t_lengths_all)))
+    all_lncRNAs$biotype = "LncRNA"
+    all_PCs <- data.frame(features = c(rep("exclusive_kallisto",nrow(longest_transcripts_ex_PCs)),rep("common",nrow(longest_transcripts_common_PCs))), t_lengths_all=c(as.numeric(longest_transcripts_ex_PCs$t_lengths_all),as.numeric(longest_transcripts_common_PCs$t_lengths_all)))
+    all_PCs$biotype = "Protein-coding"
+    my_df <- rbind(all_lncRNAs,all_PCs)
+    my_df$Threshold = threshold_minumun_gene_counts_v[j]
+    final_df <- rbind(final_df,my_df)
+  }
+  final_df$Threshold <- as.factor(final_df$Threshold)
+  return(final_df)
+}
+
+number_exons_distributions <- function(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names, protein_coding_names,n_exons_all,gene_name="gene_name")
+{
+  final_df <- data.frame(matrix(ncol = 4, nrow = 0))
+  colnames(final_df) <- c("features","number_exons","biotype","Threshold")
+  for (j in 1:length(threshold_minumun_gene_counts_v))
+  {
+    threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+    threshold_cells_detected <- threshold_cells_detected_v[j]
+    print(paste("Threshold of minimun expression:",threshold_minumun_gene_counts))
+
+    kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+    # Uniquely vs common
+    input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+    candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+    common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+
+    if (gene_name == "gene_name")
+    {
+      exons_lncRNAs <- n_exons_all[n_exons_all$gene_exons %in% lncrna_names,]
+      exons_lncRNAs_ex <- exons_lncRNAs[exons_lncRNAs$gene_exons %in% candidates_kallisto,]
+      exons_lncRNAs_common <- exons_lncRNAs[exons_lncRNAs$gene_exons %in% common_genes,]
+      
+      exons_PCs <- n_exons_all[n_exons_all$gene_exons %in% protein_coding_names,]
+      exons_PC_ex <- exons_PCs[exons_PCs$gene_exons %in% candidates_kallisto,]
+      exons_PCs_common <- exons_PCs[exons_PCs$gene_exons %in% common_genes,]
+    }
+    else
+    {
+      exons_lncRNAs <- n_exons_all[n_exons_all$gene_id %in% lncrna_names,]
+      exons_lncRNAs_ex <- exons_lncRNAs[exons_lncRNAs$gene_id %in% candidates_kallisto,]
+      exons_lncRNAs_common <- exons_lncRNAs[exons_lncRNAs$gene_id %in% common_genes,]
+      
+      exons_PCs <- n_exons_all[n_exons_all$gene_id %in% protein_coding_names,]
+      exons_PC_ex <- exons_PCs[exons_PCs$gene_id %in% candidates_kallisto,]
+      exons_PCs_common <- exons_PCs[exons_PCs$gene_id %in% common_genes,]
+    }
+
+    all_lncRNAs <- data.frame(features = c(rep("exclusive_kallisto",nrow(exons_lncRNAs_ex)),rep("common",nrow(exons_lncRNAs_common))), number_exons=c(as.numeric(exons_lncRNAs_ex$number_exons),as.numeric(exons_lncRNAs_common$number_exons)))
+    all_lncRNAs$biotype = "LncRNA"
+    all_PCs <- data.frame(features = c(rep("exclusive_kallisto",nrow(exons_PC_ex)),rep("common",nrow(exons_PCs_common))), number_exons=c(as.numeric(exons_PC_ex$number_exons),as.numeric(exons_PCs_common$number_exons)))
+    all_PCs$biotype = "Protein-coding"
+    my_df <- rbind(all_lncRNAs,all_PCs)
+    my_df$Threshold = threshold_minumun_gene_counts_v[j]
+    final_df <- rbind(final_df,my_df)
+  }
+  final_df$Threshold <- as.factor(final_df$Threshold)
+  return(final_df)
+}
 
 

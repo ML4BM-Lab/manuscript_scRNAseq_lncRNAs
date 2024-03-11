@@ -78,7 +78,6 @@ n_exons_mouse <- readRDS("number_exons_mouse.RDS")
 #CRISPR public data from paper https://www.science.org/doi/10.1126/science.aah7111 (~500 lncRNAs proved to participate in cell growth)
 crispr_data <- readRDS("/home/egonie/kike/databases/hits_info_Liu_science_2015_ensids.rds")
 
-
 ############################################################################################################################
 ############ For every dataset generate the df_vp matrix with the info about the cell specificity and expression ###########
 ############################################################################################################################
@@ -93,3 +92,99 @@ cellRanger_sce_filt_clus <- pbmc_datasets_updated[["cellRanger"]]
 STARsolo_sce_filt_clus <- pbmc_datasets_updated[["STARsolo"]]
 kallisto_sce_filt_clus <- pbmc_datasets_updated[["kallisto"]]
 alevin_sce_filt_clus <- pbmc_datasets_updated[["Alevin"]]
+
+#get universe of genes
+universe_genes <- intersect(rownames(kallisto_sce_filt_clus),rownames(alevin_sce_filt_clus))
+cellRanger_sce_filt_clus <- cellRanger_sce_filt_clus[universe_genes,]
+STARsolo_sce_filt_clus <- STARsolo_sce_filt_clus[universe_genes,]
+kallisto_sce_filt_clus <- kallisto_sce_filt_clus[universe_genes,]
+alevin_sce_filt_clus <- alevin_sce_filt_clus[universe_genes,]
+
+# Gene length distribution:
+length_PBMCs <- length_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_human, protein_coding_names_human,longest_transcripts=longest_transcripts_human,gene_name="gene_name")
+
+# Number of exons
+number_exons_PBMCs <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
+
+# Repeat content
+
+# K-mer analysis (SEEKR)
+
+# Specificity index (SI)
+
+# Intersect with bibliographically validated lncRNAs by CRISPRi
+
+############################################################################################################################
+################################################## 1k Mouse Brain cells ####################################################
+############################################################################################################################
+mouse_datasets_updated <- readRDS(mouse_1k_brain_path)
+cellRanger_sce_filt_clus <- mouse_datasets_updated[["cellRanger"]]
+STARsolo_sce_filt_clus <- mouse_datasets_updated[["STARsolo"]]
+kallisto_sce_filt_clus <- mouse_datasets_updated[["kallisto"]]
+alevin_sce_filt_clus <- mouse_datasets_updated[["Alevin"]] 
+
+#get universe of genes
+universe_genes <- intersect(rownames(kallisto_sce_filt_clus),rownames(alevin_sce_filt_clus))
+cellRanger_sce_filt_clus <- cellRanger_sce_filt_clus[universe_genes,]
+STARsolo_sce_filt_clus <- STARsolo_sce_filt_clus[universe_genes,]
+kallisto_sce_filt_clus <- kallisto_sce_filt_clus[universe_genes,]
+alevin_sce_filt_clus <- alevin_sce_filt_clus[universe_genes,]
+
+# Gene length distribution:
+length_Mouse_Brain <- length_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_mouse, protein_coding_names_mouse,longest_transcripts=longest_transcripts_mouse,gene_name="gene_name")
+
+# Number of exons
+number_exons_Mouse_Brain <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_mouse, protein_coding_names_mouse,n_exons_all=n_exons_mouse,gene_name="gene_name")
+
+# Repeat content
+
+# K-mer analysis (SEEKR)
+
+# Specificity index (SI)
+
+# Intersect with bibliographically validated lncRNAs by CRISPRi
+
+
+##############################################################################################################################################################
+###################################################  Datasets extended benchmark  ############################################################################
+##############################################################################################################################################################
+kallisto_objects <- readRDS(kallisto_figure2_path)
+kallisto_intestine_pool1_ed <- kallisto_objects[["intestine1"]]
+kallisto_intestine_pool2_ed <- kallisto_objects[["intestine2"]]
+kallisto_healthy_lung_ed <- kallisto_objects[["healthy_lung1"]]
+kallisto_healthy_lung_GSM4037316_ed <- kallisto_objects[["healthy_lung2"]]
+kallisto_pulmonary_fibrosis_ed <- kallisto_objects[["pulmonary_fibrosis"]]
+kallisto_PBMCs_5K_ed <- kallisto_objects[["PBMCs_5K"]]
+kallisto_PBMCs_mouse_ed <- kallisto_objects[["PBMCs_mouse"]]
+
+cellRanger_objects <- readRDS(cellRanger_figure2_path)
+cellRanger_intestine_pool1_ed <- cellRanger_objects[["intestine1"]]
+cellRanger_intestine_pool2_ed <- cellRanger_objects[["intestine2"]]
+cellRanger_healthy_lung_ed <- cellRanger_objects[["healthy_lung1"]]
+cellRanger_healthy_lung_GSM4037316_ed <- cellRanger_objects[["healthy_lung2"]]
+cellRanger_pulmonary_fibrosis_ed <- cellRanger_objects[["pulmonary_fibrosis"]]
+cellRanger_PBMCs_5K_ed <- cellRanger_objects[["PBMCs_5K"]]
+cellRanger_PBMCs_mouse_ed <- cellRanger_objects[["PBMCs_mouse"]]
+
+# Filtering & normalization
+threshold_mito_percentage = 15
+high_threshold_cell_counts = 50000
+cells_min_genes_detected_threshold = 500
+
+kallisto_intestine_pool1_ed_filt <- Filtering(kallisto_intestine_pool1_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_intestine_pool2_ed_filt <- Filtering(kallisto_intestine_pool2_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_healthy_lung_ed_filt <- Filtering(kallisto_healthy_lung_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_healthy_lung_GSM4037316_ed_filt <- Filtering(kallisto_healthy_lung_GSM4037316_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_pulmonary_fibrosis_ed_filt <- Filtering(kallisto_pulmonary_fibrosis_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_PBMCs_5K_ed_filt <- Filtering(kallisto_PBMCs_5K_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_PBMCs_mouse_ed_filt <- Filtering(kallisto_PBMCs_mouse_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+
+cellRanger_intestine_pool1_ed_filt <- Filtering(cellRanger_intestine_pool1_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+cellRanger_intestine_pool2_ed_filt <- Filtering(cellRanger_intestine_pool2_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+cellRanger_healthy_lung_ed_filt <- Filtering(cellRanger_healthy_lung_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+cellRanger_healthy_lung_GSM4037316_ed_filt <- Filtering(cellRanger_healthy_lung_GSM4037316_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+cellRanger_pulmonary_fibrosis_ed_filt <- Filtering(cellRanger_pulmonary_fibrosis_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+cellRanger_PBMCs_5K_ed_filt <- Filtering(cellRanger_PBMCs_5K_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+cellRanger_PBMCs_mouse_ed_filt <- Filtering(cellRanger_PBMCs_mouse_ed,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+
+length_intestine_pool1 <- length_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, lncrna_ens_ids_human, protein_coding_ens_ids_human,longest_transcripts=longest_transcripts_human,gene_name="ens_id")
