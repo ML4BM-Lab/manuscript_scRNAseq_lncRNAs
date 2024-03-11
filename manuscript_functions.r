@@ -431,4 +431,74 @@ number_exons_distributions <- function(threshold_minumun_gene_counts_v,threshold
   return(final_df)
 }
 
+crispr_data_intersection <- function(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names,crispr_data,gene_name="gene_name",hg38_ensembl_gtf)
+{
+  final_df <- data.frame(matrix(ncol = 4, nrow = 0))
+  colnames(final_df) <- c("features","gene_id","gene_name","Threshold")
+  for (j in 1:length(threshold_minumun_gene_counts_v))
+  {
+    threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+    threshold_cells_detected <- threshold_cells_detected_v[j]
+    print(paste("Threshold of minimun expression:",threshold_minumun_gene_counts))
+
+    kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+    # Uniquely vs common
+    input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+    candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+    common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+
+    candidates_kallisto_lncRNAs <- intersect(candidates_kallisto, lncrna_names)
+    common_lncRNAs <- intersect(common_genes, lncrna_names)
+
+    if(gene_name=="gene_name")
+    {
+      candidates_kallisto_lncRNAs_ens_ids <- unique(hg38_ensembl_gtf$gene_id[hg38_ensembl_gtf$gene_name %in% candidates_kallisto_lncRNAs])
+      candidates_kallisto_crispr <- intersect(gsub("\\..*","",candidates_kallisto_lncRNAs_ens_ids), gsub("\\..*","",crispr_data$gene_id))
+      common_lncRNAs_ens_ids <- unique(hg38_ensembl_gtf$gene_id[hg38_ensembl_gtf$gene_name %in% common_lncRNAs])
+      common_lncRNAs_crispr <- intersect(gsub("\\..*","",common_lncRNAs_ens_ids), gsub("\\..*","",crispr_data$gene_id))
+    }
+
+    else
+    {
+      candidates_kallisto_crispr <- intersect(gsub("\\..*","",candidates_kallisto_lncRNAs), gsub("\\..*","",crispr_data$gene_id))
+      common_lncRNAs_crispr <- intersect(gsub("\\..*","",common_lncRNAs), gsub("\\..*","",crispr_data$gene_id))
+    }
+    candidates_kallisto_crispr_gene_name <- unique(hg38_ensembl_gtf$gene_name[gsub("\\..*","",hg38_ensembl_gtf$gene_id) %in% candidates_kallisto_crispr])
+    common_lncRNAs_crispr_gene_name <- unique(hg38_ensembl_gtf$gene_name[gsub("\\..*","",hg38_ensembl_gtf$gene_id) %in% common_lncRNAs_crispr])
+
+    all_lncRNAs <- data.frame(features = c(rep("exclusive_kallisto",length(candidates_kallisto_crispr)),rep("common",length(common_lncRNAs_crispr))), gene_id=c(candidates_kallisto_crispr,common_lncRNAs_crispr), gene_name = c(candidates_kallisto_crispr_gene_name,common_lncRNAs_crispr_gene_name))
+    all_lncRNAs$Threshold = threshold_minumun_gene_counts_v[j]
+    all_lncRNAs$candidates_kallisto_all_lncRNAs <- length(candidates_kallisto_lncRNAs)
+    all_lncRNAs$common_all_lncRNAs <- length(common_lncRNAs)
+    final_df <- rbind(final_df,all_lncRNAs)
+  }
+  final_df$Threshold <- as.factor(final_df$Threshold)
+
+  # #hypergeometric_test
+  hypergeometric_test_table <- table(final_df$Threshold,final_df$features)
+  common_hyper_p_value_greater <- c()
+  candidates_hyper_p_value_greater <- c()
+  for (i in 1:nrow(hypergeometric_test_table))
+  {
+    common_hyper_p_value_greater <- c(common_hyper_p_value_greater, phyper(hypergeometric_test_table[i,1], 287, 16871-287, as.numeric(names(rev(table(final_df$common_all_lncRNAs)))[i]),lower.tail=F))
+    candidates_hyper_p_value_greater <- c(candidates_hyper_p_value_greater, phyper(hypergeometric_test_table[i,2], 287, 16871-287, as.numeric(names(rev(table(final_df$candidates_kallisto_all_lncRNAs)))[i]),lower.tail=F))
+  }
+  hypergeometric_test_table <- cbind(hypergeometric_test_table,common_hyper_p_value_greater)
+  hypergeometric_test_table <- cbind(hypergeometric_test_table,candidates_hyper_p_value_greater)
+
+  to_return_list <- list(final_df, hypergeometric_test_table)
+  return(to_return_list)
+}
+
+gene_names_sce <- function(sce, gft)
+{
+  gene_name <- gtf$gene_name[match(gsub("\\..*","",rownames(sce)),gsub("\\..*","",gtf$gene_id))]
+  rowData(sce) <- cbind(ens_id = rownames(sce),gene_name)
+  rownames(sce) <- uniquifyFeatureNames(rownames(sce), rowData(sce)$gene_name)
+  return(sce)
+}
 
