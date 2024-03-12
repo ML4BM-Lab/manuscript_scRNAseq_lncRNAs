@@ -22,6 +22,34 @@ cat gencode.v37.annotation.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/gen
 cat GRCh38.primary_assembly_GENCODE.genome.fa.out.gff | grep "chr" | grep -v ":(" | grep -v "gff-version" | grep -v "A-rich" | grep -v "G-rich" > $name
 
 
+# Seekr for grouping functionally-related lncRNAs by k-mer content (following  https://github.com/CalabreseLab/seekr)
+# Installation:
+pip install seekr
+
+# human
+cd /home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode
+seekr_download_gencode lncRNA -s human -r 37
+seekr_canonical_gencode v37_lncRNA.fa v37_lncRNA_canonical.fa
+# Add ENST00000441208.1: It is the isoform AL121895.1-204 (2701 bp) from AL121895.1 
+cat v37_lncRNA.fa | sed -n '/ENST00000441208/,/>/p' | sed '$d' >> v37_lncRNA_canonical.fa
+seekr_norm_vectors v37_lncRNA_canonical.fa 
+seekr_kmer_counts v37_lncRNA_canonical.fa -o 6mers.csv -mv mean.npy -sv std.npy  # the 6mers.csv is the input used for clustering AL121895.1 together with proven cis-repressors, cis-activators
+seekr_pearson 6mers.csv 6mers.csv -o correlations_all_lncRNAs_kmers.csv 
+seekr_graph correlations_all_lncRNAs_kmers.csv 0.13 -g correlations_communities_6mers.gml -c SEEKR_communities_6mers.csv 
+
+
+
+# mouse
+cd /home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode
+seekr_download_gencode lncRNA -s mouse -r M27
+seekr_canonical_gencode vM27_lncRNA.fa vM27_lncRNA_canonical.fa
+seekr_norm_vectors vM27_lncRNA_canonical.fa
+seekr_kmer_counts vM27_lncRNA_canonical.fa -o 6mers_mouse.csv -mv mean.npy -sv std.npy
+seekr_pearson 6mers_mouse.csv 6mers_mouse.csv -o correlations_all_lncRNAs_mouse_kmers.csv 
+seekr_graph correlations_all_lncRNAs_mouse_kmers.csv 0.13 -g correlations_all_lncRNAs_mouse_kmers.gml -c SEEKR_communities_6mers.csv  # CREO QUE AHORA HA SALIDO! Igualmente hago el graph-based clustering
+
+
+
 
 
 
