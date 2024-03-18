@@ -62,17 +62,20 @@ red_dim <- function(data)
   return(data)
 }
 
-clustering <- function(data, k, hg38_ensembl_gtf)
+clustering <- function(data, k, hg38_ensembl_gtf, change_rownames = T)
 {
   g <- buildSNNGraph(data, use.dimred = "PCA", k = k ) # k is the number of nearest neighbors used to construct the graph. Higher k
   clust <- igraph::cluster_louvain(g)$membership
   print(table(clust))
   data$louvain_clusters <- factor(clust)
 
-  # uniquifyFeatures
-  gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(data),hg38_ensembl_gtf$gene_id)]
-  rowData(data) <- cbind(ens_id = rownames(data),gene_name)
-  rownames(data) <- uniquifyFeatureNames(rownames(data), rowData(data)$gene_name)
+  if (change_rownames == T)
+  {
+    # uniquifyFeatures
+    gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(data),hg38_ensembl_gtf$gene_id)]
+    rowData(data) <- cbind(ens_id = rownames(data),gene_name)
+    rownames(data) <- uniquifyFeatureNames(rownames(data), rowData(data)$gene_name)
+  }
 
   return(data)
 }
@@ -229,6 +232,21 @@ odds_ratio_genes <- function(input_RDS, gene.activities)
     }
     odds_results <- list(OR_all, OR_lncRNAs , OR_PCs_genes)
     return(odds_results)
+}
+
+load_SEEKR_communities <- function(seekr_communities_path, gtf) 
+{
+  communities <- as.data.frame(read.csv(seekr_communities_path,header=T,row.names=1,sep=","))
+  communities$row_names <- rownames(communities)
+  a=rownames(communities)
+  res <- str_match(a, "\\|\\s*(.*?)\\s*\\|")
+  communities <- communities[!duplicated(res[,2],fromLast=T),]
+  rownames(communities) <- res[,2][!duplicated(res[,2],fromLast=T)]
+  #add gene names
+  gene_name <- gtf$gene_name[match(rownames(communities),gtf$gene_id)]
+  communities$gene_name <- gene_name
+
+  return(communities)
 }
 
 # Characterization functions
@@ -501,4 +519,261 @@ gene_names_sce <- function(sce, gft)
   rownames(sce) <- uniquifyFeatureNames(rownames(sce), rowData(sce)$gene_name)
   return(sce)
 }
+
+percentage_of_repeats <- function(repeats_GR, GR_object)
+{
+    repeats_common_genes <- GenomicRanges::intersect(repeats_GR,GR_object,ignore.strand = F)
+    a=as.data.frame(repeats_common_genes)
+    b=as.data.frame(GR_object)
+    return(100*sum(a$width)/sum(b$width))
+}
+
+repeats_results <- function(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names, protein_coding_names,gene_name="gene_name",hg38_repeats,exons_longest_transcript)
+{
+  final_repeats <- data.frame(matrix(ncol = 4, nrow = 0))
+  colnames(final_repeats) <- c("ALL_genes","LncRNAs","Protein-coding")
+  for (j in 1:length(threshold_minumun_gene_counts_v))
+  {
+    threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+    threshold_cells_detected <- threshold_cells_detected_v[j]
+    print(paste("Threshold of minimun expression:",threshold_minumun_gene_counts))
+
+    kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+    alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+    # Uniquely vs common
+    input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+    candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+    common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+
+    if(gene_name=="gene_name")
+    {
+      exons_common_genes <- exons_longest_transcript[which(exons_longest_transcript$gene_name %in%common_genes)]
+      exons_common_genes_lncRNAs <- exons_common_genes[which(exons_common_genes$gene_name %in% lncrna_names)]
+      exons_common_genes_pc <- exons_common_genes[which(exons_common_genes$gene_name %in% protein_coding_names)]
+
+      exons_candidates_kallisto <- exons_longest_transcript[which(exons_longest_transcript$gene_name %in%candidates_kallisto)]
+      exons_candidates_kallisto_lncRNAs <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_name %in% lncrna_names)]
+      exons_candidates_kallisto_pc <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_name %in% protein_coding_names)]
+    }
+    else
+    {
+      exons_longest_transcript$gene_id <- gsub("\\..*","",exons_longest_transcript$gene_id)
+      protein_coding_names <- gsub("\\..*","",protein_coding_names) 
+      lncrna_names <- gsub("\\..*","",lncrna_names) 
+      exons_common_genes <- exons_longest_transcript[which(exons_longest_transcript$gene_id %in% gsub("\\..*","",common_genes))]
+      exons_common_genes_lncRNAs <- exons_common_genes[which(exons_common_genes$gene_id %in% gsub("\\..*","",lncrna_names))]
+      exons_common_genes_pc <- exons_common_genes[which(exons_common_genes$gene_id %in% gsub("\\..*","",protein_coding_names))]
+
+      exons_candidates_kallisto <- exons_longest_transcript[which(exons_longest_transcript$gene_id %in% gsub("\\..*","",candidates_kallisto))]
+      exons_candidates_kallisto_lncRNAs <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_id %in% gsub("\\..*","",lncrna_names))]
+      exons_candidates_kallisto_pc <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_id %in% gsub("\\..*","",protein_coding_names))]
+    }
+
+    repeat_content_common_genes <- c(percentage_of_repeats(hg38_repeats,exons_common_genes),percentage_of_repeats(hg38_repeats,exons_common_genes_lncRNAs),percentage_of_repeats(hg38_repeats,exons_common_genes_pc))
+
+    repeat_content_candidates_kallisto <- c(percentage_of_repeats(hg38_repeats,exons_candidates_kallisto),percentage_of_repeats(hg38_repeats,exons_candidates_kallisto_lncRNAs),percentage_of_repeats(hg38_repeats,exons_candidates_kallisto_pc))
+
+    repeats_out <- as.data.frame(rbind(repeat_content_common_genes,repeat_content_candidates_kallisto))
+    rownames(repeats_out) <- c(paste(threshold_minumun_gene_counts,"Common",sep="_"),paste(threshold_minumun_gene_counts,"Exclusive",sep="_"))
+    repeats_out$threshold = threshold_minumun_gene_counts
+    final_repeats <- rbind(final_repeats,repeats_out)
+  }
+  colnames(final_repeats) <- c("ALL_genes","LncRNAs","Protein_coding","Threshold")
+  final_repeats$type <- gsub(".*_","",rownames(final_repeats))
+  final_repeats$Threshold <- as.factor(final_repeats$Threshold)
+
+  return(final_repeats)
+}
+
+ratios_repeats <- function(final_repeats_percentage, dataset_name)
+{
+  final_repeats <- data.frame(matrix(ncol = 3, nrow = 0))
+  for (i in levels(final_repeats_percentage$Threshold))
+  {
+    ratio_exclusive_common_lncRNAs <- final_repeats_percentage$LncRNAs[(final_repeats_percentage$Threshold==i) & (final_repeats_percentage$type=="Exclusive")]/final_repeats_percentage$LncRNAs[(final_repeats_percentage$Threshold==i) & (final_repeats_percentage$type=="Common")]
+    print(ratio_exclusive_common_lncRNAs)
+
+    ratio_exclusive_common_PCs <- final_repeats_percentage$Protein_coding[(final_repeats_percentage$Threshold==i) & (final_repeats_percentage$type=="Exclusive")]/final_repeats_percentage$Protein_coding[(final_repeats_percentage$Threshold==i) & (final_repeats_percentage$type=="Common")]
+    print(ratio_exclusive_common_PCs)
+
+    final_repeats <- rbind(final_repeats,c(ratio_exclusive_common_PCs,ratio_exclusive_common_lncRNAs,i))
+  }
+  colnames(final_repeats) <- c("Protein_coding","LncRNAs","Threshold")
+  final_repeats$Protein_coding <- as.numeric(final_repeats$Protein_coding)
+  final_repeats$LncRNAs <- as.numeric(final_repeats$LncRNAs)
+  final_repeats$dataset <- dataset_name
+
+  return(final_repeats)
+}
+
+
+SEEKR_communities <- function(communities, candidates_kallisto, common_genes,ens_id=F,title,lncrnas_ids)
+{
+  p_values_hypergeometric <- c()
+  if(ens_id==F)
+  {
+    communities <- communities[which(communities$gene_name %in% intersect(c(candidates_kallisto,common_genes), lncrnas_ids)),]
+    communities$is_kallisto_candidates <- communities$gene_name %in% candidates_kallisto
+  }
+  else
+  {
+    communities <- communities[which(rownames(communities) %in% intersect(c(candidates_kallisto,common_genes), lncrnas_ids)),]
+    communities$is_kallisto_candidates <- rownames(communities) %in% candidates_kallisto
+  }
+  df1 <- as.data.frame(table(communities$Group, communities$is_kallisto_candidate))
+  colnames(df1) <- c("Community", "Kallisto_candidates","Counts")
+  df1$Percentage <- 100*df1$Counts/(df1$Counts[1:length(table(df1$Community))]+df1$Counts[(length(table(df1$Community))+1):nrow(df1)])
+  print(df1)
+  a1=c("ALL_comms",FALSE,sum(df1$Counts[df1$Kallisto_candidates==F]),(100*sum(df1$Counts[df1$Kallisto_candidates==F]))/(sum(df1$Counts[df1$Kallisto_candidates==F])+sum(df1$Counts[df1$Kallisto_candidates==T])))
+  a2=c("ALL_comms",TRUE,sum(df1$Counts[df1$Kallisto_candidates==T]),(100*sum(df1$Counts[df1$Kallisto_candidates==T]))/(sum(df1$Counts[df1$Kallisto_candidates==F])+sum(df1$Counts[df1$Kallisto_candidates==T])))
+  a3=as.data.frame(rbind(a1,a2))
+  colnames(a3) = colnames(df1)
+  df1 = rbind(df1,a3)
+  df1$Counts = as.numeric(df1$Counts)
+  df1$Percentage = as.numeric(df1$Percentage)
+  #hypergeometric analysis. What is the probably that if I have in total 1923 exclusive lncRNAs out of 2550 lncRNAs, I have more than X lncRNAs in each category randomly
+  for (i in 1:(length(table(df1$Community))-1))
+  {
+    p <- phyper(df1$Counts[i+length(table(df1$Community))-1]-1,sum(communities$is_kallisto_candidate),nrow(communities)-sum(communities$is_kallisto_candidate),df1$Counts[i]+df1$Counts[i+length(table(df1$Community))-1],lower.tail=FALSE)
+    p_values_hypergeometric = c(p_values_hypergeometric,p)
+  }
+
+  return(list(df_all=df1,p_vals=p_values_hypergeometric))
+}
+
+SEEKR_results <- function(threshold_minumun_gene_counts, threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, seekr_communities,lncrnas_ids,ens_id=F)
+{
+  p_values_all  = c()
+  all_df =  data.frame(matrix(nrow = 0, ncol = 5))
+  colnames(all_df) <- c("Community","Kallisto_candidates","Counts","Percentage")
+  for (j in 1:length(threshold_minumun_gene_counts_v))
+  {
+  threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+  threshold_cells_detected <- threshold_cells_detected_v[j]
+  print(paste("Threshold of minimun expression:",threshold_minumun_gene_counts))
+  kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+  cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+  STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+  alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+  # Uniquely vs common
+  input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+  candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+  common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+
+  SEEKR_results <- SEEKR_communities(seekr_communities,candidates_kallisto,common_genes,ens_id, title=paste("Min expression Threshold:",threshold_minumun_gene_counts,"UMI counts"),lncrnas_ids)
+  a1 <- SEEKR_results[[2]]
+  names(a1) <- c(paste(paste("Comm_",names(table(SEEKR_results[[1]][,1]))[-length(names(table(SEEKR_results[[1]][,1])))],sep=""),threshold_minumun_gene_counts,sep=":threshold "))
+  p_values_all <- c(p_values_all,a1)
+  SEEKR_results_df <- SEEKR_results[[1]]
+  SEEKR_results_df$threshold = threshold_minumun_gene_counts
+  all_df <- rbind(all_df,SEEKR_results_df)
+  }
+  return(list(all_df=all_df,p_vals=p_values_all))
+}
+
+cell_type_specific_score_function <- function(sce,group_by, average_by)
+{
+  out <- sumCountsAcrossCells(logcounts(sce), sce[[group_by]], average=average_by)
+  counts_cell = as.data.frame(assay(out))
+  counts_cell <- counts_cell[rowSums(counts_cell[])>0,]
+  counts_cell_specificity_index=t(apply(counts_cell, 1, function(x) x/(sum(x))))
+  colnames(counts_cell_specificity_index) = out$ids
+
+  cell_type_specificity_score <- c()
+  for (i in 1:nrow(counts_cell_specificity_index))
+  {
+    s=0
+    for (j in 1:ncol(counts_cell_specificity_index))
+    {
+      if(counts_cell_specificity_index[i,j]!=0)
+      {
+        s=s+(log(counts_cell_specificity_index[i,j],ncol(counts_cell_specificity_index))*counts_cell_specificity_index[i,j]) # Same results checked as the Shannon Entropy Specificity (HS): https://apcamargo.github.io/tspex/metrics/#fnref:9
+      }
+    }
+    cell_type_specificity_score <- c(cell_type_specificity_score,1+s)
+  }
+  names(cell_type_specificity_score) <- rownames(counts_cell_specificity_index)
+
+  return(list("cell_type_specificity_score" = cell_type_specificity_score,"counts_cell_specificity_index" = counts_cell_specificity_index))
+}
+
+evolution_plots_over_clusters <- function(kallisto_sce_filt_clus,k_clus,threshold_minumun_gene_counts,threshold_cells_detected,cellRanger_sce_filt_clus,STARsolo_sce_filt_clus,alevin_sce_filt_clus, lncrna_names, protein_coding_names,n_clusters)
+{
+  SI <- cell_type_specific_score_function(kallisto_sce_filt_clus,group_by="louvain_clusters", average_by="mean")
+  cell_type_specific_score <- SI[["cell_type_specificity_score"]]
+  counts_cell_specificity_index <- SI[["counts_cell_specificity_index"]]
+
+  print(paste(k_clus," clusters: ",threshold_minumun_gene_counts," in ",threshold_cells_detected," cells",sep=""))   
+
+  kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+  cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+  STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+  alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+  # Uniquely vs common
+  input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+  candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+  common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+
+  specificity_index <- c(mean(cell_type_specific_score[common_genes]),mean(cell_type_specific_score[candidates_kallisto]),mean(cell_type_specific_score[intersect(common_genes,lncrna_names)]),mean(cell_type_specific_score[intersect(candidates_kallisto,lncrna_names)]),mean(cell_type_specific_score[intersect(common_genes,protein_coding_names)]),mean(cell_type_specific_score[intersect(candidates_kallisto,protein_coding_names)]))
+
+  feature <- c(c(rep("All_genes",2)),c(rep("LncRNAs",2)),c(rep("Protein_coding",2)))
+  type <- rep(c("common","kallisto_exclusive"),3)
+  final_df <- as.data.frame(cbind(specificity_index,type,feature,threshold_minumun_gene_counts,k_clus ))
+  final_df$specificity_index = as.numeric(final_df$specificity_index)
+
+  #save all the values for creating a evolutionary violin plot
+  specificity_index_vp<- c(cell_type_specific_score[common_genes],cell_type_specific_score[candidates_kallisto],cell_type_specific_score[intersect(common_genes,lncrna_names)],cell_type_specific_score[intersect(candidates_kallisto,lncrna_names)],cell_type_specific_score[intersect(common_genes,protein_coding_names)],cell_type_specific_score[intersect(candidates_kallisto,protein_coding_names)])
+
+  feature_vp <- c(rep("All_genes",length(common_genes)+length(candidates_kallisto)),rep("LncRNAs",length(intersect(common_genes,lncrna_names))+length(intersect(candidates_kallisto,lncrna_names))),rep("Protein_coding",length(intersect(common_genes,protein_coding_names))+length(intersect(candidates_kallisto,protein_coding_names))))
+
+  type_vp <- c(rep("common_genes",length(common_genes)),rep("kallisto_exclusive",length(candidates_kallisto)), rep("common_genes",length(intersect(common_genes,lncrna_names))), rep("kallisto_exclusive",length(intersect(candidates_kallisto,lncrna_names))),  rep("common_genes",length(intersect(common_genes,protein_coding_names))), rep("kallisto_exclusive",length(intersect(candidates_kallisto,protein_coding_names)))   )
+
+  final_df_vp <- as.data.frame(cbind(specificity_index_vp,type_vp,feature_vp,threshold_minumun_gene_counts,k_clus ))
+  final_df_vp$specificity_index = as.numeric(final_df_vp$specificity_index)
+  final_df_vp$n_clusters <- n_clusters
+  final_df_vp$total_counts <- c(rowSums(logcounts(kallisto_sce_filt_clus))[common_genes],rowSums(logcounts(kallisto_sce_filt_clus))[candidates_kallisto],rowSums(logcounts(kallisto_sce_filt_clus))[intersect(common_genes,lncrna_names)],rowSums(logcounts(kallisto_sce_filt_clus))[intersect(candidates_kallisto,lncrna_names)],rowSums(logcounts(kallisto_sce_filt_clus))[intersect(common_genes,protein_coding_names)],rowSums(logcounts(kallisto_sce_filt_clus))[intersect(candidates_kallisto,protein_coding_names)])
+
+  final_df_list <- list("final_df"=final_df,"final_df_vp"=final_df_vp)
+  return(final_df_list)
+}
+
+
+create_df_vp <- function(kallisto_sce_filt_clus,cellRanger_sce_filt_clus,STARsolo_sce_filt_clus,alevin_sce_filt_clus,lncrna_names,protein_coding_names)
+{
+  k_clusters <- c(25,10,5,3,2)
+  df <- data.frame(matrix(ncol = 5, nrow = 0))
+  df_vp <- data.frame(matrix(ncol = 5, nrow = 0))
+
+  threshold_minumun_gene_counts_v <- c(250,100,50,25)
+  threshold_cells_detected_v <- c(25,10,5,3)
+
+  for (i in k_clusters)
+  {
+    kallisto_clustered <- clustering(kallisto_sce_filt_clus,i, change_rownames = F)
+    n_clusters <- length(table(kallisto_clustered$louvain_clusters))
+
+    for (j in 1:length(threshold_minumun_gene_counts_v))
+    {   
+        threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+        threshold_cells_detected <- threshold_cells_detected_v[j]
+        
+        t=evolution_plots_over_clusters(kallisto_clustered,k_clus=i,threshold_minumun_gene_counts=threshold_minumun_gene_counts,threshold_cells_detected=threshold_cells_detected,cellRanger_sce_filt_clus,STARsolo_sce_filt_clus,alevin_sce_filt_clus, lncrna_names, protein_coding_names,n_clusters)
+        t1 <- t[["final_df"]]
+        df <- rbind(df,t1)
+        t2 <- t[["final_df_vp"]]
+        df_vp <- rbind(df_vp,t2)
+        print(paste("number of neighbors:",i,"and number of clusters:",n_clusters))
+    }
+  }
+  df_vp$k_clus <- factor(df_vp$k_clus, levels = rev(c("2","3","5","10","25")))
+  df_vp$threshold_minumun_gene_counts <- factor(df_vp$threshold_minumun_gene_counts,levels = c("250","100","50","25"))
+
+  return(df_vp)
+}
+
 

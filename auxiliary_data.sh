@@ -18,8 +18,13 @@ cd ~/dato-activo/reference.genomes_kike/GRCm39/gencode/
 cat gencode.v37.annotation.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/gene_type.*//p' | sed 's/;//g' | sed 's/transcript_id //g'  | sed 's/"//g' | sed -e 's/ /\t/g' | awk '{print $2 "\t" $1}'  | grep '^ENSM' | uniq > tr2g.tsv
 
 # Analyze repeat content (RepeatMasker v4.1.5)
+RepeatMasker_human="/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/GRCh38.primary_assembly_GENCODE.genome.fa.out_cleaned.gff"
 ./RepeatMasker /home/egonie/data/egonie/phd/reference_genomes_kike/GRCh38/gencode/GRCh38.primary_assembly_GENCODE.genome.fa -species human -gff -html -dir human
 cat GRCh38.primary_assembly_GENCODE.genome.fa.out.gff | grep "chr" | grep -v ":(" | grep -v "gff-version" | grep -v "A-rich" | grep -v "G-rich" > $name
+
+RepeatMasker_mouse="/home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode/GRCm39.primary_assembly.genome.fa.out_cleaned.gff"
+./RepeatMasker /home/egonie/data/egonie/phd/reference_genomes_kike/GRCm39/gencode/GRCm39.primary_assembly.genome.fa -species mouse -gff -html -dir mouse
+cat GRCm39.primary_assembly.genome.fa.out.gff | grep "chr" | grep -v ":(" | grep -v "gff-version" | grep -v "A-rich" | grep -v "G-rich" > $RepeatMasker_mouse
 
 
 # Seekr for grouping functionally-related lncRNAs by k-mer content (following  https://github.com/CalabreseLab/seekr)
@@ -36,8 +41,6 @@ seekr_norm_vectors v37_lncRNA_canonical.fa
 seekr_kmer_counts v37_lncRNA_canonical.fa -o 6mers.csv -mv mean.npy -sv std.npy  # the 6mers.csv is the input used for clustering AL121895.1 together with proven cis-repressors, cis-activators
 seekr_pearson 6mers.csv 6mers.csv -o correlations_all_lncRNAs_kmers.csv 
 seekr_graph correlations_all_lncRNAs_kmers.csv 0.13 -g correlations_communities_6mers.gml -c SEEKR_communities_6mers.csv 
-
-
 
 # mouse
 cd /home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode
