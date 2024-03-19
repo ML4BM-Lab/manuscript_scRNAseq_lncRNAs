@@ -512,7 +512,7 @@ crispr_data_intersection <- function(threshold_minumun_gene_counts_v,threshold_c
   return(to_return_list)
 }
 
-gene_names_sce <- function(sce, gft)
+gene_names_sce <- function(sce, gtf)
 {
   gene_name <- gtf$gene_name[match(gsub("\\..*","",rownames(sce)),gsub("\\..*","",gtf$gene_id))]
   rowData(sce) <- cbind(ens_id = rownames(sce),gene_name)
@@ -776,4 +776,146 @@ create_df_vp <- function(kallisto_sce_filt_clus,cellRanger_sce_filt_clus,STARsol
   return(df_vp)
 }
 
+main_expression_object <- function(dataset, dataset_name, threshold)
+{
+  a = dataset[(dataset$k_clus==25) & (dataset$threshold_minumun_gene_counts==threshold),]
+  a$dataset <- dataset_name
+  return(a)
+}
+
+violin_plot_expression <- function(my_df)
+{
+  colors <- c("#D4B996FF","#A07855FF")
+  p2 <- ggplot(my_df[my_df$feature_vp=="LncRNAs",],aes(x = type_vp, y = total_counts,fill = type_vp)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000),limits = range(my_df$total_counts))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme(strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12)) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) 
+
+  p3 <- ggplot(my_df[my_df$feature_vp=="Protein_coding",],aes(x = type_vp, y = total_counts,fill = type_vp)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000),limits = range(my_df$total_counts)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..))  +scale_fill_manual(values=colors) 
+
+  figure <- ggarrange(p2,p3,labels = c("Expression of exclusive lncRNAs vs common lncRNAs","Expression of exclusive PCs vs common PCs"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+  print(annotate_figure(figure,top = text_grob(""),left = text_grob("Expression (logcounts)", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
+
+  p2 <- ggplot(my_df[my_df$feature_vp=="LncRNAs",],aes(x = type_vp, y = total_counts,fill = type_vp)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000),limits = range(my_df$total_counts))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..))))))  +scale_fill_manual(values=colors) 
+  
+  p3 <- ggplot(my_df[my_df$feature_vp=="Protein_coding",],aes(x = type_vp, y = total_counts,fill = type_vp)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000),limits = range(my_df$total_counts)) + facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme(strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12)) + stat_compare_means(aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..))))))  +scale_fill_manual(values=colors) 
+  
+  figure <- ggarrange(p2,p3,labels = c("Expression of exclusive lncRNAs vs common lncRNAs","Expression of exclusive PCs vs common PCs"),ncol = 2,nrow=1,align = c("h"),legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+  print(annotate_figure(figure,top = text_grob(""),left = text_grob("Expression (logcounts)", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
+}
+
+main_object <- function(dataset, dataset_name, Threshold)
+{
+  a = dataset[(dataset$Threshold==Threshold),]
+  a$dataset <- dataset_name
+  return(a)
+}
+
+violin_plot_length <- function(my_df)
+{
+  colors <- c("#D4B996FF","#A07855FF")
+  p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = t_lengths_all,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000,100000),limits = range(my_df$t_lengths_all))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) 
+
+  p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = t_lengths_all,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000,100000),limits = range(my_df$t_lengths_all)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..))  +scale_fill_manual(values=colors) 
+
+  figure <- ggarrange(p2,p3,labels = c("Length of lncRNAs","Length of Protein-coding genes"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+  print(annotate_figure(figure,top = text_grob(""),left = text_grob("Length", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
+
+  p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = t_lengths_all,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000,100000),limits = range(my_df$t_lengths_all))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..)))))) +scale_fill_manual(values=colors) 
+
+  p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = t_lengths_all,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000,100000),limits = range(my_df$t_lengths_all)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..))))))  +scale_fill_manual(values=colors) 
+
+  figure <- ggarrange(p2,p3,labels = c("Length of lncRNAs","Length of Protein-coding genes"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+  print(annotate_figure(figure,top = text_grob(""),left = text_grob("Length", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
+
+}
+
+
+violin_plot_number_exons <- function(my_df)
+{
+  colors <- c("#D4B996FF","#A07855FF")
+  p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000),limits = range(my_df$number_exons))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) 
+
+  p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000),limits = range(my_df$number_exons)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..))  +scale_fill_manual(values=colors) 
+
+  figure <- ggarrange(p2,p3,labels = c("Number of exons of lncRNAs","Number of exons of Protein-coding genes"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+  print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
+
+  p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000),limits = range(my_df$number_exons))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..)))))) +scale_fill_manual(values=colors) 
+
+  p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000),limits = range(my_df$number_exons)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..))))))  +scale_fill_manual(values=colors) 
+
+  figure <- ggarrange(p2,p3,labels = c("Number of exons of lncRNAs","Number of exons of Protein-coding genes"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+  print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
+}
+
+main_seekr_object <- function(dataset, dataset_name, threshold)
+{
+    dataset <- dataset[[1]]
+    a = dataset[(dataset$threshold==threshold),]
+    a$dataset <- dataset_name
+    return(a)
+}
+
+seekr_barplot <- function(my_df)
+{
+  levels(my_df$Kallisto_candidates)[levels(my_df$Kallisto_candidates)=="TRUE"] = "exclusive_kallisto"
+  levels(my_df$Kallisto_candidates)[levels(my_df$Kallisto_candidates)=="FALSE"] = "common"
+  levels(my_df$Community)[levels(my_df$Community)=="ALL_comms"] = "ALL"
+
+  colors <- c("#D4B996FF","#A07855FF")
+  p1 <- ggplot(my_df,aes(x=Community, y=Percentage, fill=Kallisto_candidates)) +geom_bar(stat="identity") +   facet_wrap(~dataset, nrow = 3,scales="free") +xlab("SEEKR communities") + ylab("Percentage") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm')) +scale_fill_discrete(labels = c("Common_genes", "Kallisto_exclusive")) +  theme(strip.background = element_blank(), strip.placement = "outside",strip.text.x = element_text(size = 14)) +scale_fill_manual(values=colors) +ylim(0,101)
+  print(p1)
+}
+
+
+main_SI_object <- function(dataset, dataset_name, threshold)
+{
+    a = dataset[(dataset$threshold_minumun_gene_counts==threshold),]
+    a$dataset <- dataset_name
+
+    a$cluster_categories <- as.factor(a$n_clusters)
+    levels(a$cluster_categories)[((levels(a$cluster_categories)=="4")) | (levels(a$cluster_categories)=="5") | ((levels(a$cluster_categories)=="6")) |  ((levels(a$cluster_categories)=="7") | (levels(a$cluster_categories)=="8") | (levels(a$cluster_categories)=="9"))] = "[5-9]"
+    levels(a$cluster_categories)[(levels(a$cluster_categories)=="10") | ((levels(a$cluster_categories)=="11") | (levels(a$cluster_categories)=="12") | (levels(a$cluster_categories)=="13")) | ((levels(a$cluster_categories)=="14")) | ((levels(a$cluster_categories)=="15"))] = "[10-15]"
+    levels(a$cluster_categories)[(levels(a$cluster_categories)=="17") | (levels(a$cluster_categories)=="18") | ((levels(a$cluster_categories)=="19") | (levels(a$cluster_categories)=="20") | (levels(a$cluster_categories)=="21")) | ((levels(a$cluster_categories)=="22"))] = "[16-22]"
+    levels(a$cluster_categories)[(levels(a$cluster_categories)=="23") | ((levels(a$cluster_categories)=="24")) | ((levels(a$cluster_categories)=="25")) | (levels(a$cluster_categories)=="26") | ((levels(a$cluster_categories)=="27")) | ((levels(a$cluster_categories)=="28"))| ((levels(a$cluster_categories)=="30")) | ((levels(a$cluster_categories)=="31")) | ((levels(a$cluster_categories)=="33")) | ((levels(a$cluster_categories)=="34"))] = "[>23]"
+    return(a)
+}
+
+violin_plot_SI_ob2 <- function(my_df, hypothesis = "two.sided")
+{
+  my_df$k_clus = factor(as.character(my_df$k_clus),levels = c("25", "10", "5","3","2"))
+
+  colors <- c("#E3CD81FF","#B1B3B3FF")
+  if (hypothesis=="less")
+  {
+    aux = "more"
+  }
+  else
+  {
+    aux = "less"
+  }
+  my_df <- my_df[(my_df$feature_vp == "Protein_coding") | ((my_df$feature_vp == "LncRNAs") & (my_df$type_vp == "kallisto_exclusive")) ,]
+  p1 <- ggplot(my_df,aes(x = cluster_categories, y = specificity_index,fill = feature_vp)) +   facet_wrap(~dataset, nrow = 3,scales="free") + geom_violin() + xlab("Number of clusters") + ylab("SI") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm')) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(size = 14) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = hypothesis),symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -0,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) + theme(legend.position="bottom") +ggtitle(paste("Specificity index: Exclusive LncRNAs have", aux, "SI than ALL protein-coding genes")) + theme(plot.title = element_text(size=16,hjust = 0.5))
+
+  print(p1)
+} 
+
+counts_crispr <- function(dataset_all, dataset_name)
+{
+  dataset <- dataset_all[[1]]
+  a = table(dataset$Threshold, dataset$features)
+  reshaped_a <- melt(a)
+  colnames(reshaped_a) <- c("Threshold","features","crispr_genes")
+  reshaped_a$dataset <- dataset_name
+
+  round(dataset_all[[2]],4)
+  reshaped_a$p_value_hypergeom <- as.numeric(c(signif(dataset_all[[2]][,3],3),signif(dataset_all[[2]][,4],3)))
+  return(reshaped_a)
+}
+generate_supp_table <- function(dataset_all, dataset_name)
+{
+    dataset <- dataset_all[[1]]
+    dataset <- dataset[dataset$feature=="exclusive_kallisto",]
+    dataset <- dataset[,1:4]
+    dataset$dataset <- dataset_name
+    return(dataset)
+}
 
