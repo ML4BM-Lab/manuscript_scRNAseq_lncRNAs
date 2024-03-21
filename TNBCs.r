@@ -217,6 +217,26 @@ kallisto_sce_AA051 <- qc_metrics(kallisto_AA051, mitochondrial_ens_ids)
 cellRanger_filt_sce_ed_AA051 <- emptydrops_filt(cellRanger_sce_AA051, lower_ED = 500, EmptyDrops_FDR_thres = 0.01 )
 kallisto_filt_sce_ed_AA051 <- emptydrops_filt(kallisto_sce_AA051, lower_ED = 500, EmptyDrops_FDR_thres = 0.01 )
 
+threshold_mito_percentage = 20
+low_threshold_cell_counts = 3000
+high_threshold_cell_counts = 50000
+cells_min_genes_detected_threshold = 700
+cellRanger_filt_sce_AA051 <- Filtering_TNBC(cellRanger_filt_sce_ed_AA051,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold, cells_min_threshold = low_threshold_cell_counts)
+kallisto_filt_sce_AA051 <- Filtering_TNBC(kallisto_filt_sce_ed_AA051,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold, cells_min_threshold = low_threshold_cell_counts)
+
+# uniquifyFeatures
+gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(cellRanger_filt_sce_AA051),hg38_ensembl_gtf$gene_id)]
+rowData(cellRanger_filt_sce_AA051) <- cbind(ens_id = rownames(cellRanger_filt_sce_AA051),gene_name)
+rownames(cellRanger_filt_sce_AA051) <- uniquifyFeatureNames(rownames(cellRanger_filt_sce_AA051), rowData(cellRanger_filt_sce_AA051)$gene_name)
+
+gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(kallisto_filt_sce_AA051),hg38_ensembl_gtf$gene_id)]
+rowData(kallisto_filt_sce_AA051) <- cbind(ens_id = rownames(kallisto_filt_sce_AA051),gene_name)
+rownames(kallisto_filt_sce_AA051) <- uniquifyFeatureNames(rownames(kallisto_filt_sce_AA051), rowData(kallisto_filt_sce_AA051)$gene_name)
+
+#saveRDS for integration
+actual_rds_objects_AA051 <- list("kallisto" = kallisto_sce_filt_clus_AA051, "cellRanger" = cellRanger_sce_filt_clus_AA051)
+saveRDS(actual_rds_objects_AA051,"actual_rds_objects_AA051.rds")
+# CORRECT DOUBLETS IN THIS SAMPLE!!
 
 
 
