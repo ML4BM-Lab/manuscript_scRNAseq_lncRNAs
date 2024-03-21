@@ -25,6 +25,7 @@ mouse_repeatMasker_cleaned_path <- "/home/egonie/dato-activo/reference.genomes_k
 seekr_6_communities_mouse_path <- "/home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode/SEEKR_communities_6mers.csv"
 
 source("/home/egonie/kike/phd/git_rep_hpclogin/manuscript_scRNAseq_lncRNAs/manuscript_functions.r")
+source("/home/egonie/kike/phd/git_rep_hpclogin/manuscript_scRNAseq_lncRNAs/characterization_function.r")
 setwd("/home/egonie/kike/phd/test_data/paper_figures/figure3_characterization_ex_kallisto")
 
 # Datasets
