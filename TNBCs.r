@@ -179,28 +179,40 @@ cells_min_genes_detected_threshold = 700
 cellRanger_filt_sce_AA038 <- Filtering_TNBC(cellRanger_filt_sce_ed_AA038,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold, cells_min_threshold = low_threshold_cell_counts)
 kallisto_filt_sce_AA038 <- Filtering_TNBC(kallisto_filt_sce_ed_AA038,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold, cells_min_threshold = low_threshold_cell_counts)
 
-# uniquifyFeatures
-gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(cellRanger_filt_sce_AA038),hg38_ensembl_gtf$gene_id)]
-rowData(cellRanger_filt_sce_AA038) <- cbind(ens_id = rownames(cellRanger_filt_sce_AA038),gene_name)
-rownames(cellRanger_filt_sce_AA038) <- uniquifyFeatureNames(rownames(cellRanger_filt_sce_AA038), rowData(cellRanger_filt_sce_AA038)$gene_name)
+cellRanger_filt_sce_AA038 <- red_dim(cellRanger_filt_sce_AA038)
+kallisto_filt_sce_AA038 <- red_dim(kallisto_filt_sce_AA038)
+cellRanger_filt_sce_AA038 <- clustering(cellRanger_filt_sce_AA038, k = 10, hg38_ensembl_gtf)
+kallisto_filt_sce_AA038 <- clustering(kallisto_filt_sce_AA038, k = 10, hg38_ensembl_gtf)
 
-gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(kallisto_filt_sce_AA038),hg38_ensembl_gtf$gene_id)]
-rowData(kallisto_filt_sce_AA038) <- cbind(ens_id = rownames(kallisto_filt_sce_AA038),gene_name)
-rownames(kallisto_filt_sce_AA038) <- uniquifyFeatureNames(rownames(kallisto_filt_sce_AA038), rowData(kallisto_filt_sce_AA038)$gene_name)
+new_doublet_analysis <- function(data)
+{
+    dbl.dens <- computeDoubletDensity(data, d=ncol(reducedDim(data)))
+    print(summary(dbl.dens))
+    data$DoubletScore <- dbl.dens
+    dbl.calls <- doubletThresholding(data.frame(score=dbl.dens),method="griffiths", returnType="call")
+    data$first_doublet_threshold <- dbl.calls
+
+    data <- scDblFinder(data, clusters=TRUE)
+    data$second_doublet_threshold <- data$scDblFinder.class == "doublet"
+    return(data)
+}
+# Caution: This sample seem to have a high doublet content
+kallisto_filt_sce_AA038 <- new_doublet_analysis(kallisto_filt_sce_AA038)
+cellRanger_filt_sce_AA038 <- new_doublet_analysis(cellRanger_filt_sce_AA038)
+kallisto_filt_sce_AA038_nodoub=kallisto_filt_sce_AA038[, (kallisto_filt_sce_AA038$DoubletScore < 3)  & (kallisto_filt_sce_AA038$scDblFinder.score < 0.25)]
+cellRanger_filt_sce_AA038_nodoub=cellRanger_filt_sce_AA038[, (cellRanger_filt_sce_AA038$DoubletScore < 3)  & (cellRanger_filt_sce_AA038$scDblFinder.score < 0.25)]
 
 #saveRDS for integration
-actual_rds_objects_AA038 <- list("kallisto" = kallisto_sce_filt_clus_AA038, "cellRanger" = cellRanger_sce_filt_clus_AA038)
+actual_rds_objects_AA038 <- list("kallisto" = kallisto_filt_sce_AA038_nodoub, "cellRanger" = cellRanger_filt_sce_AA038_nodoub)
 saveRDS(actual_rds_objects_AA038,"actual_rds_objects_AA038.rds")
-
-# CORRECT DOUBLETS IN THIS SAMPLE!!
 
 #####################################################################################################################################################################
 # 1. Processing: Sample5: AA051
-cell_ranger_dir <- "/home/egonie/kike/datos/119_Amaya_scRNAseq_BLANCA/NextSeq2000.RUN148.230213/AA051_alldata/outs/raw_feature_bc_matrix"
+cell_ranger_dir <- "/home/egonie/kike/datos/119_Amaya_scRNAseq_BLANCA/NextSeq2000.RUN148.230213/01.CellRanger/AA051_alldata/outs/raw_feature_bc_matrix"
 cellRanger_data <- Read10X(data.dir = cell_ranger_dir, gene.column = 1)
 cellRanger_AA051 <- CreateSeuratObject(cellRanger_data, project = "cellRanger")
 
-kallisto_dir <- "/home/egonie/kike/datos/119_Amaya_scRNAseq_BLANCA/NextSeq2000.RUN148.230213/output_bus_transcriptome/bustools_results_no_multimappers"
+kallisto_dir <- "/home/egonie/kike/datos/119_Amaya_scRNAseq_BLANCA/NextSeq2000.RUN148.230213/01.Kallisto/output_bus_transcriptome/bustools_results_no_multimappers"
 kallisto_data <- BUSpaRse::read_count_output(kallisto_dir, name = "cells_genes_NO_multimapping")
 kallisto_AA051 <- CreateSeuratObject(kallisto_data, project = "kallisto")
 
@@ -232,11 +244,21 @@ rownames(cellRanger_filt_sce_AA051) <- uniquifyFeatureNames(rownames(cellRanger_
 gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(kallisto_filt_sce_AA051),hg38_ensembl_gtf$gene_id)]
 rowData(kallisto_filt_sce_AA051) <- cbind(ens_id = rownames(kallisto_filt_sce_AA051),gene_name)
 rownames(kallisto_filt_sce_AA051) <- uniquifyFeatureNames(rownames(kallisto_filt_sce_AA051), rowData(kallisto_filt_sce_AA051)$gene_name)
+# Remove doublets (there are some in this sample also)
+cellRanger_filt_sce_AA051 <- red_dim(cellRanger_filt_sce_AA051)
+kallisto_filt_sce_AA051 <- red_dim(kallisto_filt_sce_AA051)
+
+dbl.dens <- computeDoubletDensity(cellRanger_filt_sce_AA051, d=ncol(reducedDim(cellRanger_filt_sce_AA051)))
+cellRanger_filt_sce_AA051$DoubletScore <- dbl.dens
+cellRanger_sce_filt_AA051_nodoubs <- cellRanger_filt_sce_AA051[,cellRanger_filt_sce_AA051$DoubletScore< 3]
+
+dbl.dens <- computeDoubletDensity(kallisto_filt_sce_AA051, d=ncol(reducedDim(kallisto_filt_sce_AA051)))
+kallisto_filt_sce_AA051$DoubletScore <- dbl.dens
+kallisto_sce_filt_AA051_nodoubs <- kallisto_filt_sce_AA051[,kallisto_filt_sce_AA051$DoubletScore< 3]
 
 #saveRDS for integration
-actual_rds_objects_AA051 <- list("kallisto" = kallisto_sce_filt_clus_AA051, "cellRanger" = cellRanger_sce_filt_clus_AA051)
+actual_rds_objects_AA051 <- list("kallisto" = kallisto_sce_filt_AA051_nodoubs, "cellRanger" = cellRanger_sce_filt_AA051_nodoubs)
 saveRDS(actual_rds_objects_AA051,"actual_rds_objects_AA051.rds")
-# CORRECT DOUBLETS IN THIS SAMPLE!!
 
 
 
