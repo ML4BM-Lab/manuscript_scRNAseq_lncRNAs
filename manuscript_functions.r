@@ -351,4 +351,142 @@ cell_type_specific_score_function <- function(sce,group_by, average_by)
   return(list("cell_type_specificity_score" = cell_type_specificity_score,"counts_cell_specificity_index" = counts_cell_specificity_index))
 }
 
+# TNBC specific functions
+filter_top_genes <- function(sce, features)
+{
+    sce <- sce[which(rownames(sce) %in% features)]
+    return(sce)
+}
 
+uncorrected_integration_TNBC <- function(AA017, AA024, AA025, AA038, AA051)
+{
+    universe <- intersect(rownames(AA017), intersect(rownames(AA024), intersect(rownames(AA025), intersect(rownames(AA038),rownames(AA051) ))))
+    length(universe)
+    AA017 <- AA017[universe,]
+    AA017 <- red_dim(AA017)
+    AA024 <- AA024[universe,]
+    AA024 <- red_dim(AA024)
+    AA025 <- AA025[universe,]
+    AA025 <- red_dim(AA025)
+    AA038 <- AA038[universe,]
+    AA051 <- AA051[universe,]
+    rescaled <- multiBatchNorm(AA017, AA024, AA025, AA038,AA051)  # recomputes log-normalized expression values after adjusting the size factors for systematic differences in coverage between. This improves the quality of the correction by removing one aspect of the technical differences between batches
+    AA017 <- rescaled[[1]]
+    AA024 <- rescaled[[2]]
+    AA025 <- rescaled[[3]]
+    AA038 <- rescaled[[4]]
+    AA051 <- rescaled[[5]]
+
+    # No correction
+    AA017$batch <- "AA017"
+    AA024$batch <- "AA024"
+    AA025$batch <- "AA025"
+    AA038$batch <- "AA038"
+    AA051$batch <- "AA051"
+
+    universe_coldata <- intersect(colnames(colData(AA025)),intersect(colnames(colData(AA038)),colnames(colData(AA051))))
+    colData(AA017) <- colData(AA017)[,universe_coldata]
+    colData(AA024) <- colData(AA024)[,universe_coldata]
+    colData(AA025) <- colData(AA025)[,universe_coldata]
+    colData(AA038) <- colData(AA038)[,universe_coldata]
+    colData(AA051) <- colData(AA051)[,universe_coldata]
+    uncorrected <- cbind(AA017,AA024,AA025,cbind(AA038,AA051))
+    uncorrected <- runPCA(uncorrected)
+    uncorrected <- runTSNE(uncorrected, dimred = "PCA")
+    uncorrected <- runUMAP(uncorrected, dimred = "PCA")
+    snn.gr <- buildSNNGraph(uncorrected, use.dimred="PCA",k=30)
+    clusters <- igraph::cluster_walktrap(snn.gr)$membership
+    tab <- table(Cluster=clusters, Batch=uncorrected$batch)
+    print(tab)
+    uncorrected$combined_clustering <- as.factor(clusters)
+
+    return(uncorrected)
+}
+
+mnn_integration_TNBC <- function(AA017, AA024, AA025, AA038, AA051)
+{
+    #MNN correction (OSCA)
+    universe <- intersect(rownames(AA017), intersect(rownames(AA024), intersect(rownames(AA025), intersect(rownames(AA038),rownames(AA051) ))))
+    length(universe)
+    AA017 <- AA017[universe,]
+    AA017 <- red_dim(AA017)
+    AA024 <- AA024[universe,]
+    AA024 <- red_dim(AA024)
+    AA025 <- AA025[universe,]
+    AA025 <- red_dim(AA025)
+    AA038 <- AA038[universe,]
+    AA051 <- AA051[universe,]
+    rescaled <- multiBatchNorm(AA017, AA024, AA025, AA038,AA051)  # recomputes log-normalized expression values after adjusting the size factors for systematic differences in coverage between. This improves the quality of the correction by removing one aspect of the technical differences between batches
+    AA017 <- rescaled[[1]]
+    AA024 <- rescaled[[2]]
+    AA025 <- rescaled[[3]]
+    AA038 <- rescaled[[4]]
+    AA051 <- rescaled[[5]]
+
+    # No correction
+    AA017$batch <- "AA017"
+    AA024$batch <- "AA024"
+    AA025$batch <- "AA025"
+    AA038$batch <- "AA038"
+    AA051$batch <- "AA051"
+
+    universe_coldata <- intersect(colnames(colData(AA025)),intersect(colnames(colData(AA038)),colnames(colData(AA051))))
+    colData(AA017) <- colData(AA017)[,universe_coldata]
+    colData(AA024) <- colData(AA024)[,universe_coldata]
+    colData(AA025) <- colData(AA025)[,universe_coldata]
+    colData(AA038) <- colData(AA038)[,universe_coldata]
+    colData(AA051) <- colData(AA051)[,universe_coldata]
+
+    var_AA017 <- modelGeneVar(AA017)
+    var_AA024 <- modelGeneVar(AA024)
+    var_AA025 <- modelGeneVar(AA025)
+    var_AA038 <- modelGeneVar(AA038)
+    var_AA051 <- modelGeneVar(AA051)
+    combined.dec <- combineVar(var_AA017, var_AA024, var_AA025, var_AA038, var_AA051)
+    chosen.hvgs <- combined.dec$bio > 0
+    sum(chosen.hvgs)
+    #fastMNN to do MNN correction
+    set.seed(100100100)
+    mnn.out <- fastMNN(AA017, AA024,AA025,AA038,AA051, subset.row = chosen.hvgs, d = 50, k = 20) #don't subset genes
+    mnn.out
+    metadata(mnn.out)$merge.info$lost.var # percentage of variance lost after correction (have less than 10% [REF OSCA: http://bioconductor.org/books/3.16/OSCA.multisample/correction-diagnostics.html#mnn-specific-diagnostics])
+    snn.gr <- buildSNNGraph(mnn.out, use.dimred="corrected", k = 10) #k=10
+    clusters.mnn <- igraph::cluster_louvain(snn.gr)$membership
+    tab.mnn <- table(Cluster=clusters.mnn, Batch=mnn.out$batch)
+    tab.mnn
+    mnn.out$louvain_clusters <- factor(clusters.mnn)
+    mnn.out$batch <- factor(mnn.out$batch)
+    mnn.out$identity <- (mnn.out$batch)
+    levels(mnn.out$identity) <- c("AA017", "AA024","AA025","AA038","AA051")
+
+    #dim reduction
+    set.seed(0010101010)
+    mnn.out <- runTSNE(mnn.out, dimred = "corrected")
+    mnn.out <- runUMAP(mnn.out, dimred = "corrected")
+    mnn.out_backup <- mnn.out
+    colnames(mnn.out)[which(mnn.out$identity=="AA017")] <- paste(colnames(mnn.out)[which(mnn.out$identity=="AA017")],"AA017",sep="_")
+    colnames(mnn.out)[which(mnn.out$identity=="AA024")] <- paste(colnames(mnn.out)[which(mnn.out$identity=="AA024")],"AA024",sep="_")
+    colnames(mnn.out)[which(mnn.out$identity=="AA025")] <- paste(colnames(mnn.out)[which(mnn.out$identity=="AA025")],"AA025",sep="_")
+    colnames(mnn.out)[which(mnn.out$identity=="AA038")] <- paste(colnames(mnn.out)[which(mnn.out$identity=="AA038")],"AA038",sep="_")
+    colnames(mnn.out)[which(mnn.out$identity=="AA051")] <- paste(colnames(mnn.out)[which(mnn.out$identity=="AA051")],"AA051",sep="_")
+
+    return(mnn.out)
+}
+
+plot_markers_integrated <- function(sce,mnn_object, markers, title, group)
+{
+  a=sce
+  colnames(a)=colnames(mnn_object)
+  print(DotPlot(as.Seurat(a), assay = "RNA", features = intersect(markers,rownames(sce)), scale.by = "size",col.min =  0, cols = c("lightgrey", "darkred"), group.by = c(group)) + ggtitle(title)  +geom_point(aes(size=pct.exp), shape = 21, colour="black", stroke=0.5)+ theme(legend.position="bottom", legend.direction="horizontal")) 
+}
+
+to_seurat <- function(real_expression_object, mnn_object)
+{
+    universe=intersect(rownames(real_expression_object),rownames(mnn_object))
+    b=real_expression_object[universe,]
+    # We do that in order to color the UNCORRECTED expression!!! Very important! Never color CORRECTED values
+    assay(mnn_object, withDimnames=FALSE,"counts")=assay(b, "counts")
+    assay(mnn_object, withDimnames=FALSE,"logcounts")=assay(b, "logcounts")
+    t=as.Seurat(mnn_object)
+    return(t)
+}
