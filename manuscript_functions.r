@@ -490,3 +490,46 @@ to_seurat <- function(real_expression_object, mnn_object)
     t=as.Seurat(mnn_object)
     return(t)
 }
+
+JIND_simplificate_cell_types <- function(JIND_raw_predictions)
+{
+  JIND_raw_predictions = gsub("B cells.*","B cells",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("CAFs.*","CAFs",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Cancer.*","Cancer Epithelial",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Endothelial.*","Endothelial",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Macrophage","Myeloid",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Monocyte","Myeloid",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Mature Luminal","Epithelial",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Luminal Progenitors","Epithelial",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Myoepithelial","Epithelial",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("Cycling PVL","Mesenchymal",JIND_raw_predictions)
+  JIND_raw_predictions = gsub("PVL.*","Mesenchymal",JIND_raw_predictions)
+
+  return(JIND_raw_predictions)
+}
+
+COL2 = function(diverging = c('RdBu', 'BrBG', 'PiYG', 'PRGn', 'PuOr', 'RdYlBu'),
+                n = 200) {
+
+  diverging = match.arg(diverging)
+
+  colors = switch(
+    diverging,
+    RdBu = c('#67001F', '#B2182B', '#D6604D', '#F4A582', '#FDDBC7', '#FFFFFF',
+             '#D1E5F0', '#92C5DE', '#4393C3', '#2166AC', '#053061'),
+    BrBG = c('#543005', '#8C510A', '#BF812D', '#DFC27D', '#F6E8C3', '#FFFFFF',
+             '#C7EAE5', '#80CDC1', '#35978F', '#01665E', '#003C30'),
+    PiYG = c('#8E0152', '#C51B7D', '#DE77AE', '#F1B6DA', '#FDE0EF', '#FFFFFF',
+             '#E6F5D0', '#B8E186', '#7FBC41', '#4D9221', '#276419'),
+    PRGn = c('#40004B', '#762A83', '#9970AB', '#C2A5CF', '#E7D4E8', '#FFFFFF',
+             '#D9F0D3', '#A6DBA0', '#5AAE61', '#1B7837', '#00441B'),
+    PuOr = c('#7F3B08', '#B35806', '#E08214', '#FDB863', '#FEE0B6', '#FFFFFF',
+             '#D8DAEB', '#B2ABD2', '#8073AC', '#542788', '#2D004B'),
+    RdYlBu = c('#A50026', '#D73027', '#F46D43', '#FDAE61', '#FEE090', '#FFFFFF',
+               '#E0F3F8', '#ABD9E9', '#74ADD1', '#4575B4', '#313695')
+  )
+
+  return(colorRampPalette(colors)(n))
+
+}
+
