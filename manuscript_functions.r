@@ -533,3 +533,83 @@ COL2 = function(diverging = c('RdBu', 'BrBG', 'PiYG', 'PRGn', 'PuOr', 'RdYlBu'),
 
 }
 
+uniquifyFeatures <- function(data, hg38_ensembl_gtf)
+{
+    gene_name <- hg38_ensembl_gtf$gene_name[match(rownames(data),hg38_ensembl_gtf$gene_id)]
+    rowData(data) <- cbind(ens_id = rownames(data),gene_name)
+    rownames(data) <- uniquifyFeatureNames(rownames(data), rowData(data)$gene_name)
+    return(data)
+}
+
+uncorrected_integration_2_samples <- function(s1, s2, label1, label2)
+{
+    rescaled <- multiBatchNorm(s1, s2)
+    s1 <- rescaled[[1]]
+    s2 <- rescaled[[2]]
+    # No correction
+    s1$batch <- label1
+    s2$batch <- label2
+    universe_coldata <- intersect(colnames(colData(s1)),colnames(colData(s2)))
+    colData(s1) <- colData(s1)[,universe_coldata]
+    colData(s2) <- colData(s2)[,universe_coldata]
+
+    uncorrected <- cbind(s1,s2)
+    uncorrected <- red_dim(uncorrected)
+    uncorrected <- clustering(uncorrected, k=20, "PCA", change_rownames = F)
+
+    return(uncorrected)
+}
+
+mnn_integration_2_samples <- function(s1,s2, label1, label2)
+{
+    rescaled <- multiBatchNorm(s1, s2)
+    s1 <- rescaled[[1]]
+    s2 <- rescaled[[2]]
+    # No correction
+    s1$batch <- label1
+    s2$batch <- label2
+    universe_coldata <- intersect(colnames(colData(s1)),colnames(colData(s2)))
+    colData(s1) <- colData(s1)[,universe_coldata]
+    colData(s2) <- colData(s2)[,universe_coldata]
+
+    #MNN correction (OSCA)
+    var_s1 <- modelGeneVar(s1)
+    var_s2 <- modelGeneVar(s2)
+    combined.dec <- combineVar(var_s1, var_s2)
+    chosen.hvgs <- combined.dec$bio > 0
+    sum(chosen.hvgs)
+    #fastMNN to do MNN correction
+    set.seed(100100100)
+    mnn.out <- fastMNN(s1, s2, subset.row = chosen.hvgs, d = 50, k = 20) 
+    metadata(mnn.out)$merge.info$lost.var # percentage of variance lost after correction (have less than 10% [REF OSCA: http://bioconductor.org/books/3.16/OSCA.multisample/correction-diagnostics.html#mnn-specific-diagnostics])
+    
+    snn.gr <- buildSNNGraph(mnn.out, use.dimred="corrected", k = 10) #k=10
+    clusters.mnn <- igraph::cluster_louvain(snn.gr)$membership
+    tab.mnn <- table(Cluster=clusters.mnn, Batch=mnn.out$batch)
+    tab.mnn
+    
+    mnn.out$louvain_clusters <- factor(clusters.mnn)
+    mnn.out$batch <- factor(mnn.out$batch)
+    mnn.out$identity <- (mnn.out$batch)
+    levels(mnn.out$identity) <- c(label1, label2)
+
+    #dim reduction
+    set.seed(0010101010)
+    mnn.out <- runTSNE(mnn.out, dimred = "corrected")
+    mnn.out <- runUMAP(mnn.out, dimred = "corrected")
+    colnames(mnn.out)[which(mnn.out$identity==label1)] <- paste(colnames(mnn.out)[which(mnn.out$identity==label1)],label1,sep="_")
+    colnames(mnn.out)[which(mnn.out$identity==label2)] <- paste(colnames(mnn.out)[which(mnn.out$identity==label2)],label2,sep="_")
+
+    return(mnn.out)
+}
+
+get_index_df <- function(a)
+{
+  new_ct <- c()
+  for (i in 1:ncol(a))
+  {
+    new_ct <- c(new_ct,names(which.max(a[,i])))
+  }
+  return(new_ct)
+}
+
