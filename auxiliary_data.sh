@@ -52,8 +52,10 @@ seekr_pearson 6mers_mouse.csv 6mers_mouse.csv -o correlations_all_lncRNAs_mouse_
 seekr_graph correlations_all_lncRNAs_mouse_kmers.csv 0.13 -g correlations_all_lncRNAs_mouse_kmers.gml -c SEEKR_communities_6mers.csv  # CREO QUE AHORA HA SALIDO! Igualmente hago el graph-based clustering
 
 
-
-
+# Get antisense lncRNAs to protein-coding gene
+# Get gtf of protein-coding genes
+cd ~/dato-activo/reference.genomes_kike/GRCh38/gencode/
+cat gencode.v37.annotation.gtf
 
 
 

@@ -175,7 +175,7 @@ dev.off()
 objects_list <- list(kallisto_GEX = kallisto_GEX_clus, cellRanger_GEX = cellRanger_GEX_clus, gene_activities_ATAC = gene.activities)
 saveRDS(objects_list, "preprocessed_WNN_ANNOTATED_objects.rds")
 # load rds
-objects <- readRDS("preprocessed_WNN_ANNOTATED_objects.rds")
+objects_list <- readRDS("preprocessed_WNN_ANNOTATED_objects.rds")
 kallisto_GEX <- objects_list[["kallisto_GEX"]]
 cellRanger_GEX <- objects_list[["cellRanger_GEX"]]
 gene.activities <- objects_list[["gene_activities_ATAC"]]
@@ -185,6 +185,103 @@ cellRanger_GEX$cell_type <- factor(cellRanger_GEX$cell_type_WNN_clusters, levels
 kallisto_GEX$cell_type <- factor(kallisto_GEX$cell_type_WNN_clusters, levels = c("B cells","DCs","Monocytes","NK","NKT","T cells"))
 plot_markers(cellRanger_GEX, canonical_markers, title = "Cell Ranger", group = "cell_type")
 plot_markers(kallisto_GEX, canonical_markers, title = "Kallisto", group = "cell_type")
+dev.off()
+
+# Gene expression detected by Cell Ranger & Kallisto
+#nLncRNAs detected/cell
+all_sce <- as.data.frame(cbind(c(cellRanger_GEX$subsets_lncRNA_detected, kallisto_GEX$subsets_lncRNA_detected),c(rep("cellRanger",ncol(cellRanger_GEX)),rep("kallisto",ncol(kallisto_GEX)))))
+colnames(all_sce) <- c("Detected_lncRNAs","ident")
+all_sce$ident <- as.character(all_sce$ident)
+all_sce$ident <- factor(all_sce$ident, levels = c("cellRanger","kallisto"))
+all_sce[,1] <- as.numeric(all_sce[,1])
+
+pdf("/home/egonie/kike/phd/test_data/paper_figures/figure3/Detected_lncRNAs_nuclei.pdf")
+ggplot(all_sce, aes(x=ident, y=Detected_lncRNAs, fill = ident)) + geom_violin(alpha = 1, scale = "width", width = 0.8) + scale_fill_manual(values = color_palette_iwanthue) + theme_classic() + scale_colour_manual(values = color_palette_iwanthue) + ggtitle("Detected lncRNAs/cell") + theme(plot.title = element_text(hjust = 0.5, size = 20),axis.text=element_text(size=12), axis.title=element_text(size=14, face = "bold"))  + labs(y= "", x="") + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+dev.off()
+
+threshold_minumun_gene_counts = 100
+threshold_cells_detected = 10
+kallisto_top_genes <- top_genes(kallisto_GEX,threshold_minumun_gene_counts,threshold_cells_detected )
+cellRanger_top_genes <- top_genes(cellRanger_GEX,threshold_minumun_gene_counts,threshold_cells_detected )
+input_list <- list(CellRanger = intersect(rownames(cellRanger_top_genes),lncrna_names), Kallisto = intersect(rownames(kallisto_top_genes),lncrna_names))
+pdf("/home/egonie/kike/phd/test_data/paper_figures/figure3/upset_plot_lncRNAs_multiome_250counts_in_25_genes.pdf")
+upset(fromList(input_list), order.by = "degree", mainbar.y.label = "Highly-expressed lncRNAs", keep.order = TRUE, text.scale = c(2.5,1.7,1.7,1.6,2.0,1.7),, sets.x.label = "Number of lncRNAs")
+df <- data.frame(Pipeline=c("Cell Ranger","Kallisto"),exclusive_lncRNAs=c(length(input_list$CellRanger), length(input_list$Kallisto)))
+p1 <- ggplot(df,aes(x=Pipeline, y=exclusive_lncRNAs)) +geom_bar(stat="identity", width=0.65) +xlab("Pipeline") + ylab("Highly-expressed lncRNAs") + theme_classic() + theme(axis.text = element_text(size=13), axis.title = element_text(size=14)) + ggtitle("Highly-expressed lncRNAs") + theme(plot.title = element_text(hjust = 0.5, size = 15))
+print(p1)
+no_theme <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
+p2 <- ggplot(df, aes(x=Pipeline, y=exclusive_lncRNAs, fill=Pipeline)) + geom_bar(stat="identity",color="black",show.legend = FALSE) +no_theme +  theme(axis.title.y = element_text(size=26, hjust = 0.5, vjust = -1),plot.title = element_text(hjust = 0.5, size = 25, face="bold"),axis.text=element_text(size=17, color="black")) + labs(title="Highly-expressed lncRNAs", x="Pipeline", y = "Highly-expressed lncRNAs") +scale_fill_manual(values=color_palette_iwanthue, name="") + scale_x_discrete(limits=c("Cell Ranger", "Kallisto"))
+print(p2)
+dev.off()
+
+# Highly-expressed genes detected with ATAC-seq that are missed by Cell Ranger/ Kallisto (there are 10 times more counts in lncRNAs in ATAC-seq gene_activities than in RNA-seq of CR and Kallisto)
+# What filters to set? See how many counts fall in lncRNAs are in ATAC-seq and RNA-seq
+sum(rowSums(counts(kallisto_GEX))[intersect(lncrna_names, rownames(gene.activities))])
+sum(rowSums(counts(cellRanger_GEX))[intersect(lncrna_names, rownames(gene.activities))])
+sum(rowSums(gene.activities)[intersect(lncrna_names, rownames(gene.activities))])
+# 10 times more counts in ATAC (thus set 10x the threshold) 
+gene.activities_top_genes <- gene.activities[((rowSums(gene.activities) > 2500 ) & (rowSums(gene.activities != 0) > 250)),]
+
+# Get ELATUS lncRNAs
+ELATUS_lncRNAs <- ELATUS::ELATUS_filtered("Human", kallisto_GEX, cellRanger_GEX, gene_names = FALSE, threshold_minumun_gene_counts = 250, threshold_cells_detected = 25, dimred_clustering = "PCA", k_neighbors = 5, ratio_threshold = 15, CR_threshold = 15, SI_threshold = 0.15)
+
+common_ELATUS_ATAC <- intersect(intersect(rownames(gene.activities_top_genes), lncrna_names), rownames(ELATUS_lncRNAs))
+exclusive_ATAC <- setdiff(intersect(rownames(gene.activities_top_genes), lncrna_names), rownames(ELATUS_lncRNAs))
+exclusive_ELATUS <- setdiff(rownames(ELATUS_lncRNAs),intersect(rownames(gene.activities_top_genes), lncrna_names))
+input_list <- list(ELATUS_candidates = intersect(rownames(ELATUS_lncRNAs),lncrna_names), ATAC_lncRNAs = intersect(rownames(gene.activities_top_genes),lncrna_names))
+pdf("/home/egonie/kike/phd/test_data/paper_figures/figure3/upset_plot_lncRNAs_multiome_ATAC_ELATUS.pdf")
+upset(fromList(input_list), order.by = "degree", mainbar.y.label = "Highly-expressed lncRNAs", keep.order = TRUE, text.scale = c(1.7,1.7,1.7,1.6,2.0,1.7), sets.x.label = "Number of lncRNAs")
+
+# Common ELATUS and ATAC-seq have more exons & are longer
+source("/home/egonie/kike/phd/git_rep_hpclogin/manuscript_scRNAseq_lncRNAs/characterization_function.r")
+setwd("/home/egonie/kike/phd/test_data/paper_figures/figure3_characterization_ex_kallisto")
+longest_transcripts_human <- readRDS("longest_transcripts_human.RDS")
+exons_longest_transcripts_human <- readRDS("/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/exons_longest_transcripts.rds")
+n_exons_human <- readRDS("number_exons_human.RDS")
+
+common_genes = c(exclusive_ELATUS,common_ELATUS_ATAC)
+candidates_kallisto = exclusive_ATAC
+
+# Length
+longest_transcripts_lncRNAs <- longest_transcripts_human[longest_transcripts_human$genes_names_all %in% lncrna_names,]
+longest_transcripts_ex_lncRNAs <- longest_transcripts_lncRNAs[longest_transcripts_lncRNAs$genes_names_all %in% candidates_kallisto,]
+longest_transcripts_common_lncRNAs <- longest_transcripts_lncRNAs[longest_transcripts_lncRNAs$genes_names_all %in% common_genes,]
+t.test(as.numeric(longest_transcripts_common_lncRNAs$t_lengths_all), as.numeric(longest_transcripts_ex_lncRNAs$t_lengths_all))
+wilcox.test(as.numeric(longest_transcripts_common_lncRNAs$t_lengths_all), as.numeric(longest_transcripts_ex_lncRNAs$t_lengths_all))
+my_df <- data.frame(features = c(rep("exclusive_ATAC",nrow(longest_transcripts_ex_lncRNAs)),rep("ELATUS",nrow(longest_transcripts_common_lncRNAs))), t_lengths_all=c(as.numeric(longest_transcripts_ex_lncRNAs$t_lengths_all),as.numeric(longest_transcripts_common_lncRNAs$t_lengths_all)))
+
+colors <- c("#D4B996FF","#A07855FF")
+p1 <- ggplot(my_df,aes(x = features, y = t_lengths_all,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000,100000),limits = range(my_df$t_lengths_all)) + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -3.5,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) +ggtitle("Length")
+
+# Number of exons
+exons_lncRNAs <- n_exons_human[n_exons_human$gene_name %in% lncrna_names,]
+exons_lncRNAs_ex <- exons_lncRNAs[exons_lncRNAs$gene_name %in% candidates_kallisto,]
+exons_lncRNAs_common <- exons_lncRNAs[exons_lncRNAs$gene_name %in% common_genes,]
+t.test(as.numeric(exons_lncRNAs_common$number_exons), as.numeric(exons_lncRNAs_ex$number_exons))
+wilcox.test(as.numeric(exons_lncRNAs_common$number_exons), as.numeric(exons_lncRNAs_ex$number_exons))
+my_df <- data.frame(features = c(rep("exclusive_ATAC",nrow(exons_lncRNAs_ex)),rep("ELATUS",nrow(exons_lncRNAs_common))), number_exons=c(as.numeric(exons_lncRNAs_ex$number_exons),as.numeric(exons_lncRNAs_common$number_exons)))
+p2 <- ggplot(my_df,aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',breaks=c(10,100,1000, 10000,100000),limits = range(my_df$number_exons)) + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -3.5,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) + ggtitle("Number of exons") 
+
+print(p1)
+print(p2)
+dev.off()
+# Antisense (bedtools intersect with the gtf)
+gtf_gene <- gtf[gtf$type=="gene"]
+gtf_gene_protein_coding <- gtf_gene[gtf_gene$gene_biotype=="protein_coding"]
+gtf_gene_lncRNAs <- gtf_gene[gtf_gene$gene_biotype=="lncRNA"]
+
+all_intersects <- as.data.frame(gtf_gene_lncRNAs[queryHits(GenomicRanges::findOverlaps(gtf_gene_lncRNAs, gtf_gene_protein_coding, ignore.strand = T)),])
+all_intersects_same_strand <- as.data.frame(gtf_gene_lncRNAs[queryHits(GenomicRanges::findOverlaps(gtf_gene_lncRNAs, gtf_gene_protein_coding, ignore.strand = F)),])
+all_intersects_antisense <- setdiff(all_intersects,all_intersects_same_strand)
+antisense_lncRNAs <- unique(all_intersects_antisense$gene_name)
+
+100*length(intersect(candidates_kallisto, antisense_lncRNAs))/length(candidates_kallisto)
+100*length(intersect(common_genes, antisense_lncRNAs))/length(common_genes)
+
+df <- data.frame(lncRNAs=c("ELATUS_candidates","ATAC_lncrnas"),proportion_antisense=c((100*length(intersect(common_genes, antisense_lncRNAs))/length(common_genes)), 100*length(intersect(candidates_kallisto, antisense_lncRNAs))/length(candidates_kallisto)))
+pdf("/home/egonie/kike/phd/test_data/paper_figures/figure3/ELATUS_ATAC_antisense_lncRNAs.pdf")
+p1 <- ggplot(df,aes(x=lncRNAs, y=proportion_antisense)) +geom_bar(stat="identity", width=0.65) +xlab("") + ylab("Antisense (%)") + theme_classic() + theme(axis.text = element_text(size=13), axis.title = element_text(size=14))+ylim(0,100) + ggtitle("Percentage of antisense lncRNAs") + theme(plot.title = element_text(size=15))
+print(p1)
 dev.off()
 
 ####################################################################################################################################
