@@ -109,6 +109,44 @@ number_of_exons_longest_isoform <- function(gtf, longest_transcripts)
     return(n_exons_gene)
 }
 
+number_proximal_exons <- function(gtf, longest_transcripts, distance_3UTR)
+{
+    exons = gtf[gtf$type=="exon",]
+    number_exons <- c()
+    gene_id <- c()
+    transcript_id <- c()
+    g_n <- exons[,12]
+    g_i <- exons[,10]
+    gene_name <- c()
+    for (i in unique(exons$transcript_id))
+    { 
+        if (i %in% longest_transcripts$transcripts_all)
+        {
+            subset_exons <- exons[exons$transcript_id==i,]
+            if(subset_exons$strand[1] == "+")
+            {
+                position_3UTR <- max(subset_exons$end)
+                number_proximal_exons <- sum(subset_exons$end > (position_3UTR -  distance_3UTR))
+            }
+            else
+            {
+                position_3UTR <- min(subset_exons$start)
+                number_proximal_exons <- sum(subset_exons$start < (position_3UTR+ distance_3UTR))
+            }
+            number_exons <- c(number_exons,number_proximal_exons)
+            transcript_id <- c(transcript_id,i)
+            gene_id <- c(gene_id,unique(g_i[exons$transcript_id==i]))
+            gene_name <- c(gene_name,unique(g_n[exons$transcript_id==i]))
+            print(length(number_exons))
+        }
+    }
+    n_exons_gene <- as.data.frame(cbind(gene_id,gene_name,transcript_id,number_exons))
+    colnames(n_exons_gene) <- c("gene_id","gene_exons","transcript_id","number_proximal_exons")
+
+    return(n_exons_gene)
+}
+
+
 length_distributions <- function(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names, protein_coding_names,longest_transcripts,gene_name="gene_name")
 {
   final_df <- data.frame(matrix(ncol = 4, nrow = 0))
@@ -513,6 +551,42 @@ violin_plot_number_exons <- function(my_df)
   figure <- ggarrange(p2,p3,labels = c("Number of exons of lncRNAs","Number of exons of Protein-coding genes"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
   print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 13)))
 }
+
+violin_plot_number_proximal_exons <- function(my_df)
+{
+    # Hypothesis 1: Exclusive is higher than common
+    colors <- c("#D4B996FF","#A07855FF")
+    p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "less"),symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) 
+
+    p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "less"),symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..))  +scale_fill_manual(values=colors) 
+
+    figure <- ggarrange(p2,p3,labels = c("Number of proximal exons of lncRNAs: Hyp. Exclusive have more exons than common","Number of exons of proximal protein-coding genes: Hyp. Exclusive have more exons than common"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+    print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 15)))
+
+    p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "less"),aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..)))))) +scale_fill_manual(values=colors) 
+
+    p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "less"),aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..))))))  +scale_fill_manual(values=colors) 
+
+    figure <- ggarrange(p2,p3,labels = c("Number of proximal exons of lncRNAs: Hyp. Exclusive have more exons than common","Number of exons of proximal protein-coding genes: Hyp. Exclusive have more exons than common"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+    print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 15)))
+
+    # Hypothesis 2: Exclusive is smaller than common
+    colors <- c("#D4B996FF","#A07855FF")
+    p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "greater"),symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..)) +scale_fill_manual(values=colors) 
+
+    p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "greater"),symnum.args = list(cutpoints = c(0, 0.0005, 0.005, 0.05, 0.1, 1), symbols = c("****", "***", "**", "*", "ns")),hjust = -1,aes(label = ..p.signif..))  +scale_fill_manual(values=colors) 
+
+    figure <- ggarrange(p2,p3,labels = c("Number of proximal exons of lncRNAs: Hyp. Exclusive have less exons than common","Number of exons of proximal protein-coding genes: Hyp. Exclusive have less exons than common"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+    print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 15)))
+
+    p2 <- ggplot(my_df[my_df$biotype=="LncRNA",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons))+   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9))+xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "greater"),aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..)))))) +scale_fill_manual(values=colors) 
+
+    p3 <- ggplot(my_df[my_df$biotype=="Protein-coding",],aes(x = features, y = number_exons,fill = features)) + scale_y_continuous(trans='log10',limits = range(my_df$number_exons)) +   facet_wrap(~dataset, nrow = 1,strip.position="bottom") + geom_violin() + geom_boxplot(width=0.2,position=position_dodge(width = 0.9)) +xlab("") + ylab("") + theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) +theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) + stat_compare_means(method = "wilcox.test",method.args = list(alternative = "greater"),aes(label = ifelse( p < 2.e-16, p.format, ifelse( p < 1.e-2, sprintf("p = %2.1e", as.numeric(..p.format..)), sprintf("p = %5.4f", as.numeric(..p.format..))))))  +scale_fill_manual(values=colors) 
+
+    figure <- ggarrange(p2,p3,labels = c("Number of proximal exons of lncRNAs: Hyp. Exclusive have less exons than common","Number of exons of proximal protein-coding genes: Hyp. Exclusive have less exons than common"),ncol = 2,nrow=1,legend = "bottom",common.legend = TRUE, hjust=c(-0.15,-0.25), vjust= c(0.15,0.15)) + theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm'),axis.ticks.x=element_blank(),axis.text.x=element_blank()) + theme( strip.background = element_blank(),strip.text = element_text(size = 15),strip.placement = "outside" )
+    print(annotate_figure(figure,top = text_grob(""),left = text_grob("Number of exons", rot = 90, vjust = 2,hjust = -0.01,size = 15)))
+}
+
 
 main_seekr_object <- function(dataset, dataset_name, threshold)
 {

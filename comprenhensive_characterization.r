@@ -79,6 +79,17 @@ n_exons_mouse <- number_of_exons_longest_isoform(mouse_gtf, longest_transcripts_
 saveRDS(n_exons_mouse, "number_exons_mouse.RDS")
 n_exons_mouse <- readRDS("number_exons_mouse.RDS")
 
+# Get the number of proximal exons for the longest isoform of each gene
+n_proximal_exons_human <- number_proximal_exons(hg38_ensembl_gtf, longest_transcripts_human, distance_3UTR = 15000)
+saveRDS(n_proximal_exons_human, "n_proximal_15kb_exons_human.RDS")
+n_proximal_exons_human <- readRDS("n_proximal_15kb_exons_human.RDS")
+n_proximal_exons_human$number_exons <- n_proximal_exons_human$number_proximal_exons
+
+n_proximal_exons_mouse <- number_proximal_exons(mouse_gtf, longest_transcripts_mouse, distance_3UTR = 15000)
+saveRDS(n_proximal_exons_mouse, "n_proximal_15kb_exons_mouse.RDS")
+n_proximal_exons_mouse <- readRDS("n_proximal_15kb_exons_mouse.RDS")
+n_proximal_exons_mouse$number_exons <- n_proximal_exons_mouse$number_proximal_exons
+
 # Load repeats from repeatMasker
 human_repeats_cleaned <- rtracklayer::import(human_repeatMasker_cleaned_path)
 mouse_repeats_cleaned <- rtracklayer::import(mouse_repeatMasker_cleaned_path)
@@ -119,6 +130,9 @@ length_PBMCs <- length_distributions(threshold_minumun_gene_counts_v,threshold_c
 # Number of exons
 number_exons_PBMCs <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
 
+# Number of proximal exons
+number_proximal_exons_PBMCs <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
+
 # Repeat content
 final_repeats_percentage_PBMCs <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_hg_10k_PBMCs <- ratios_repeats(final_repeats_percentage_PBMCs,"hg_10k_PBMCs")
@@ -156,6 +170,9 @@ length_Mouse_Brain <- length_distributions(threshold_minumun_gene_counts_v,thres
 
 # Number of exons
 number_exons_Mouse_Brain <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_mouse, protein_coding_names_mouse,n_exons_all=n_exons_mouse,gene_name="gene_name")
+
+# Number of proximal exons
+number_proximal_exons_Mouse_Brain <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names_mouse, protein_coding_names_mouse,n_exons_all=n_proximal_exons_mouse,gene_name="gene_name")
 
 # Repeat content
 final_repeats_percentage_Mouse_Brain <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus,lncrna_names_mouse,protein_coding_names_mouse,hg38_repeats=mouse_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_mouse)
@@ -236,6 +253,9 @@ length_intestine_pool1 <- length_distributions(threshold_minumun_gene_counts_v,t
 # Number of exons
 number_exons_intestine_pool1 <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
 
+# Number of proximal exons
+number_proximal_exons_intestine_pool1 <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
+
 # Repeat content
 final_repeats_percentage_intestine_pool1 <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_intestine_pool1 <- ratios_repeats(final_repeats_percentage_intestine_pool1,"hg_intestine_1")
@@ -258,6 +278,9 @@ length_intestine_pool2 <- length_distributions(threshold_minumun_gene_counts_v,t
 
 # Number of exons
 number_exons_intestine_pool2 <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
+
+# Number of proximal exons
+number_proximal_exons_intestine_pool2 <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
 
 # Repeat content
 final_repeats_percentage_intestine_pool2 <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
@@ -282,6 +305,9 @@ length_healthy_lung <- length_distributions(threshold_minumun_gene_counts_v,thre
 # Number of exons
 number_exons_healthy_lung <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt ,cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
 
+# Number of proximal exons
+number_proximal_exons_healthy_lung <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt ,cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
+
 # Repeat content
 final_repeats_percentage_healthy_lung <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_healthy_lung <- ratios_repeats(final_repeats_percentage_healthy_lung,"hg_lung_healthy_1")
@@ -304,6 +330,9 @@ length_healthy_lung_GSM4037316 <- length_distributions(threshold_minumun_gene_co
 
 # Number of exons
 number_exons_healthy_lung_GSM4037316 <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
+
+# Number of proximal exons
+number_proximal_exons_healthy_lung_GSM4037316 <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
 
 # Repeat content
 final_repeats_percentage_healthy_lung_GSM4037316 <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
@@ -328,6 +357,9 @@ length_pulmonary_fibrosis <- length_distributions(threshold_minumun_gene_counts_
 # Number of exons
 number_exons_pulmonary_fibrosis <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
 
+# Number of proximal exons
+number_proximal_exons_pulmonary_fibrosis <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
+
 # Repeat content
 final_repeats_percentage_pulmonary_fibrosis <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_pulmonary_fibrosis <- ratios_repeats(final_repeats_percentage_pulmonary_fibrosis,"hg_lung_fibrosis")
@@ -350,6 +382,9 @@ length_PBMCs_5K <- length_distributions(threshold_minumun_gene_counts_v,threshol
 
 # Number of exons
 number_exons_PBMCs_5K <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_exons_human,gene_name="gene_name")
+
+# Number of proximal exons
+number_proximal_exons_PBMCs_5K <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, lncrna_names_human, protein_coding_names_human,n_exons_all=n_proximal_exons_human,gene_name="gene_name")
 
 # Repeat content
 final_repeats_percentage_PBMCs_5K <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
@@ -374,6 +409,9 @@ length_PBMCs_mouse <- length_distributions(threshold_minumun_gene_counts_v,thres
 
 # Number of exons
 number_exons_PBMCs_mouse <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, lncrna_names_mouse, protein_coding_names_mouse,n_exons_all=n_exons_mouse,gene_name="gene_name")
+
+# Number of proximal exons
+number_proximal_exons_PBMCs_mouse <- number_exons_distributions(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, lncrna_names_mouse, protein_coding_names_mouse,n_exons_all=n_proximal_exons_mouse,gene_name="gene_name")
 
 # Repeat content
 final_repeats_percentage_PBMCs_mouse <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt,lncrna_names_mouse,protein_coding_names_mouse,hg38_repeats=mouse_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_mouse)
@@ -467,6 +505,18 @@ dev.off()
 all_datasets_25 <- rbind(main_object(number_exons_PBMCs, "hg_10k_PBMCs", 25),main_object(number_exons_Mouse_Brain, "mm_1k_brain", 25),main_object(number_exons_intestine_pool1, "hg_intestine_1", 25),main_object(number_exons_intestine_pool2, "hg_intestine_2", 25),main_object(number_exons_healthy_lung, "hg_lung_healthy_1", 25),main_object(number_exons_healthy_lung_GSM4037316, "hg_lung_healthy_2", 25),main_object(number_exons_pulmonary_fibrosis, "hg_lung_fibrosis", 25),main_object(number_exons_PBMCs_5K, "hg_5k_PBMCs", 25),main_object(number_exons_PBMCs_mouse, "mm_10k_PBMCs", 25))
 pdf("violin_plot_number_exons_t25.pdf",width = 22, height = 8)
 violin_plot_number_exons(all_datasets_25)
+dev.off()
+
+##############################################################################################################################################################
+# 3 - FINAL. Number of proximal exons 
+all_datasets_250 <- rbind(main_object(number_proximal_exons_PBMCs, "hg_10k_PBMCs", 250),main_object(number_proximal_exons_Mouse_Brain, "mm_1k_brain", 250),main_object(number_proximal_exons_intestine_pool1, "hg_intestine_1", 250),main_object(number_proximal_exons_intestine_pool2, "hg_intestine_2", 250),main_object(number_proximal_exons_healthy_lung, "hg_lung_healthy_1", 250),main_object(number_proximal_exons_healthy_lung_GSM4037316, "hg_lung_healthy_2", 250),main_object(number_proximal_exons_pulmonary_fibrosis, "hg_lung_fibrosis", 250),main_object(number_proximal_exons_PBMCs_5K, "hg_5k_PBMCs", 250), main_object(number_proximal_exons_PBMCs_mouse, "mm_10k_PBMCs", 250))
+pdf("R3_10_violin_plot_number_proximal_15kb_exons_t250.pdf",width = 26, height = 8)
+violin_plot_number_proximal_exons(all_datasets_250)
+dev.off()
+
+all_datasets_100 <- rbind(main_object(number_proximal_exons_PBMCs, "hg_10k_PBMCs", 100),main_object(number_proximal_exons_Mouse_Brain, "mm_1k_brain", 100),main_object(number_proximal_exons_intestine_pool1, "hg_intestine_1", 100),main_object(number_proximal_exons_intestine_pool2, "hg_intestine_2", 100),main_object(number_proximal_exons_healthy_lung, "hg_lung_healthy_1", 100),main_object(number_proximal_exons_healthy_lung_GSM4037316, "hg_lung_healthy_2", 100),main_object(number_proximal_exons_pulmonary_fibrosis, "hg_lung_fibrosis", 100),main_object(number_proximal_exons_PBMCs_5K, "hg_5k_PBMCs", 100), main_object(number_proximal_exons_PBMCs_mouse, "mm_10k_PBMCs", 100))
+pdf("R3_10_violin_plot_number_proximal_15kb_exons_t100.pdf",width = 26, height = 8)
+violin_plot_number_proximal_exons(all_datasets_100)
 dev.off()
 
 
