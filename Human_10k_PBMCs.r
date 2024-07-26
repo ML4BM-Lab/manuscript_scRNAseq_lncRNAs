@@ -1,6 +1,6 @@
 ########################################################### Generic #################################################################################################
 #####################################################################################################################################################################
-libraries <- c("Seurat","patchwork", "tximport", "ggplot2", "scran" , "scater", "SingleCellExperiment", "BUSpaRse", "DropletUtils", "RColorBrewer", "cluster", "UpSetR","scRNAseq", "ggpubr","scDblFinder","reshape")
+libraries <- c("Seurat","patchwork", "tximport", "ggplot2", "scran" , "scater", "SingleCellExperiment", "BUSpaRse", "DropletUtils", "RColorBrewer", "cluster", "UpSetR","scRNAseq", "ggpubr","scDblFinder","reshape","dplyr","ggupset")
 
 lapply(libraries, require, character.only = TRUE)
 # Import gtf annotation & setWD, source functions
@@ -193,12 +193,224 @@ pdf("upset_plot_lncRNAs_250counts_in_25_genes.pdf", width = 8.75, height = 8)
 upset(fromList(input_list), order.by = "degree", mainbar.y.label = "", keep.order = TRUE, text.scale = c(2.5,1.7,1.7,1.6,2.0,1.7), sets.x.label = "Number of lncRNAs",
 queries =list(list(query = intersects, params = list("Kallisto"), active = T, color = color_palette[3])))
 dev.off()
+input_list_lncRNAs <- list(CellRanger = intersect(rownames(cellRanger_top_genes),lncrna_ens_ids), Kallisto = intersect(rownames(kallisto_top_genes),lncrna_ens_ids))
+ratio_lncRNAs_v38 <- length(setdiff(input_list_lncRNAs$Kallisto, input_list_lncRNAs$CellRanger))/length(intersect(input_list_lncRNAs$Kallisto, input_list_lncRNAs$CellRanger))
 
 input_list2 <- list(CellRanger = intersect(rownames(cellRanger_top_genes),protein_coding_ens_ids), STARsolo = intersect(rownames(STARsolo_top_genes),protein_coding_ens_ids), Kallisto = intersect(rownames(kallisto_top_genes),protein_coding_ens_ids), Salmon = intersect(rownames(alevin_top_genes),protein_coding_ens_ids))
 pdf("upset_plot_protein_coding_names_250counts_in_25_genes.pdf", width = 8, height = 8)
 upset(fromList(input_list2), order.by = "degree", mainbar.y.label = "", keep.order = TRUE, text.scale = c(2.5,1.7,1.7,1.6,2.0,1.7), sets.x.label = "Protein coding genes") 
 #grid.text("Protein coding genes intersection",x = 0.65, y=0.97, gp=gpar(fontsize=12, fontface="bold"))
 dev.off()
+input_list_PCs <- list(CellRanger = intersect(rownames(cellRanger_top_genes),protein_coding_ens_ids), Kallisto = intersect(rownames(kallisto_top_genes),protein_coding_ens_ids))
+ratio_PCs_v38 <- length(setdiff(input_list_PCs$Kallisto, input_list_PCs$CellRanger))/length(intersect(input_list_PCs$Kallisto, input_list_PCs$CellRanger))
+
+
+
+##########################################################################################################################################################################
+# Detection of protein-coding genes & lncRNAs affected by more/less precise annotations (compare commonly detected vs exclusively detected)
+# 
+hg38_ensembl_gtf_ <- as.data.frame(rtracklayer::import("/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode_release_45/gencode..annotation.gtf"))
+hg38_ensembl_gtf_$gene_id <- gsub("_","-",hg38_ensembl_gtf_$gene_id)
+mitochondrial_ens_ids_ <- unique(hg38_ensembl_gtf_$gene_id[grep("^MT-",hg38_ensembl_gtf_$gene_name)])
+lncrna_ens_ids_hg38_ <- unique(c(hg38_ensembl_gtf_$gene_id[grep("lncRNA",hg38_ensembl_gtf_$gene_type)]))
+protein_coding_ens_ids_hg38_ <- unique(c(hg38_ensembl_gtf_$gene_id[hg38_ensembl_gtf_$gene_type=="protein_coding"]))
+
+cellRanger_ <- CreateSeuratObject(Read10X(data.dir = "/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/hg38_gencode_release_/01.CellRanger/Parent_NGSC3_DI_PBMC/outs/raw_feature_bc_matrix", gene.column = 1), project = "cellRanger")
+kallisto_ <- CreateSeuratObject(BUSpaRse::read_count_output("/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/hg38_gencode_release_/01.Kallisto/output_bus_transcriptome/bustools_results", name = "cells_genes_NO_multimapping"), project = "kallisto")
+
+# Convert to SingleCellExperiment
+cellRanger_ <- as.SingleCellExperiment(cellRanger_)
+colnames(cellRanger_) <- gsub("\\-.*","",colnames(cellRanger_))
+kallisto_ <- as.SingleCellExperiment(kallisto_)
+
+# Quality control
+cellRanger_sce_ <- qc_metrics(cellRanger_, mitochondrial_ens_ids)
+kallisto_sce_ <- qc_metrics(kallisto_, mitochondrial_ens_ids)
+
+# EmptyDrops filtering
+cellRanger_filt_sce_ed_ <- emptydrops_filt(cellRanger_sce_, lower_ED = 100, EmptyDrops_FDR_thres = 0.0001 )
+kallisto_filt_sce_ed_ <- emptydrops_filt(kallisto_sce_, lower_ED = 100, EmptyDrops_FDR_thres = 0.0001 )
+
+# Doublet analysis
+cellRanger_filt_sce_ed_nodoubs_ <- doublet_analysis(cellRanger_filt_sce_ed_)
+cellRanger_filt_sce_ed_nodoubs_ <- cellRanger_filt_sce_ed_nodoubs_[,cellRanger_filt_sce_ed_nodoubs_$isDoublet == F]
+kallisto_filt_sce_ed_nodoubs_ <- doublet_analysis(kallisto_filt_sce_ed_)
+kallisto_filt_sce_ed_nodoubs_ <- kallisto_filt_sce_ed_nodoubs_[,kallisto_filt_sce_ed_nodoubs_$isDoublet == F]
+
+pbmc_datasets_ <- list("cellRanger" = cellRanger_filt_sce_ed_nodoubs_, "kallisto" = kallisto_filt_sce_ed_nodoubs_)
+saveRDS(pbmc_datasets_, file = "/home/egonie/kike/phd/test_data/paper_figures/figure1/pbmc_datasets_hg38_.rds")
+pbmc_datasets_ <- readRDS("/home/egonie/kike/phd/test_data/paper_figures/figure1/pbmc_datasets_hg38_.rds")
+cellRanger_filt_sce_ed_nodoubs_ <- pbmc_datasets_[["cellRanger"]]
+kallisto_filt_sce_ed_nodoubs_ <- pbmc_datasets_[["kallisto"]]
+
+cellRanger_filt_sce_ed_ <- Filtering(cellRanger_filt_sce_ed_nodoubs_,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_filt_sce_ed_ <- Filtering(kallisto_filt_sce_ed_nodoubs_,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+
+kallisto_top_genes_ <- top_genes(kallisto_filt_sce_ed_,threshold_minumun_gene_counts,threshold_cells_detected )
+cellRanger_top_genes_ <- top_genes(cellRanger_filt_sce_ed_,threshold_minumun_gene_counts,threshold_cells_detected )
+
+input_list__lncRNAs <- list(CellRanger = intersect(rownames(cellRanger_top_genes_),lncrna_ens_ids_hg38_), Kallisto = intersect(rownames(kallisto_top_genes_),lncrna_ens_ids_hg38_))
+ratio_lncRNAs_ <- length(setdiff(input_list__lncRNAs$Kallisto, input_list__lncRNAs$CellRanger))/length(intersect(input_list__lncRNAs$Kallisto, input_list__lncRNAs$CellRanger))
+
+input_list__PCs <- list(CellRanger = intersect(rownames(cellRanger_top_genes_),protein_coding_ens_ids_hg38_), Kallisto = intersect(rownames(kallisto_top_genes_),protein_coding_ens_ids_hg38_))
+ratio_PCs_ <- length(setdiff(input_list__PCs$Kallisto, input_list__PCs$CellRanger))/length(intersect(input_list__PCs$Kallisto, input_list__PCs$CellRanger))
+
+
+
+# hg19 v19
+hg19_ensembl_gtf <- as.data.frame(rtracklayer::import("/home/egonie/dato-activo/reference.genomes_kike/GRCh37/gencode/gencode.v19.annotation.gtf"))
+hg19_ensembl_gtf$gene_id <- gsub("_","-",hg19_ensembl_gtf$gene_id)
+mitochondrial_ens_ids_v19 <- unique(hg19_ensembl_gtf$gene_id[grep("^MT-",hg19_ensembl_gtf$gene_name)])
+lncrna_ens_ids_v19 <- unique(c(hg19_ensembl_gtf$gene_id[(hg19_ensembl_gtf$gene_type=="3prime_overlapping_ncRNA") | (hg19_ensembl_gtf$gene_type=="antisense") | (hg19_ensembl_gtf$gene_type=="bidirectional_promoter_lncRNA") | (hg19_ensembl_gtf$gene_type=="lincRNA") | (hg19_ensembl_gtf$gene_type=="macro_lncRNA") | (hg19_ensembl_gtf$gene_type=="non_coding") | (hg19_ensembl_gtf$gene_type=="processed_transcript") | (hg19_ensembl_gtf$gene_type=="sense_intronic") | (hg19_ensembl_gtf$gene_type=="sense_overlapping")]))
+protein_coding_ens_ids_v19 <- unique(c(hg19_ensembl_gtf$gene_id[hg19_ensembl_gtf$gene_type=="protein_coding"]))
+
+cellRanger_v19 <- CreateSeuratObject(Read10X(data.dir = "/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/hg19_gencode/01.CellRanger/Parent_NGSC3_DI_PBMC/outs/raw_feature_bc_matrix", gene.column = 1), project = "cellRanger")
+kallisto_v19 <- CreateSeuratObject(BUSpaRse::read_count_output("/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/hg19_gencode/01.Kallisto/output_bus_transcriptome/bustools_results_no_multimappers", name = "cells_genes_NO_multimapping"), project = "kallisto")
+
+# Convert to SingleCellExperiment
+cellRanger_v19 <- as.SingleCellExperiment(cellRanger_v19)
+colnames(cellRanger_v19) <- gsub("\\-.*","",colnames(cellRanger_v19))
+kallisto_v19 <- as.SingleCellExperiment(kallisto_v19)
+
+# Quality control
+cellRanger_sce_v19 <- qc_metrics(cellRanger_v19, mitochondrial_ens_ids_v19)
+kallisto_sce_v19 <- qc_metrics(kallisto_v19, mitochondrial_ens_ids_v19)
+
+# EmptyDrops filtering
+cellRanger_filt_sce_ed_v19 <- emptydrops_filt(cellRanger_sce_v19, lower_ED = 100, EmptyDrops_FDR_thres = 0.0001 )
+kallisto_filt_sce_ed_v19 <- emptydrops_filt(kallisto_sce_v19, lower_ED = 100, EmptyDrops_FDR_thres = 0.0001 )
+
+# Doublet analysis
+cellRanger_filt_sce_ed_nodoubs_v19 <- doublet_analysis(cellRanger_filt_sce_ed_v19)
+cellRanger_filt_sce_ed_nodoubs_v19 <- cellRanger_filt_sce_ed_nodoubs_v19[,cellRanger_filt_sce_ed_nodoubs_v19$isDoublet == F]
+kallisto_filt_sce_ed_nodoubs_v19 <- doublet_analysis(kallisto_filt_sce_ed_v19)
+kallisto_filt_sce_ed_nodoubs_v19 <- kallisto_filt_sce_ed_nodoubs_v19[,kallisto_filt_sce_ed_nodoubs_v19$isDoublet == F]
+
+pbmc_datasets_v19 <- list("cellRanger" = cellRanger_filt_sce_ed_nodoubs_v19, "kallisto" = kallisto_filt_sce_ed_nodoubs_v19)
+saveRDS(pbmc_datasets_v19, file = "/home/egonie/kike/phd/test_data/paper_figures/figure1/pbmc_datasets_hg19_v19.rds")
+pbmc_datasets_v19 <- readRDS("/home/egonie/kike/phd/test_data/paper_figures/figure1/pbmc_datasets_hg19_v19.rds")
+cellRanger_filt_sce_ed_nodoubs_v19 <- pbmc_datasets_v19[["cellRanger"]]
+kallisto_filt_sce_ed_nodoubs_v19 <- pbmc_datasets_v19[["kallisto"]]
+
+cellRanger_filt_sce_ed_v19 <- Filtering(cellRanger_filt_sce_ed_nodoubs_v19,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_filt_sce_ed_v19 <- Filtering(kallisto_filt_sce_ed_nodoubs_v19,  cells_mito_threshold = threshold_mito_percentage, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+
+kallisto_top_genes_v19 <- top_genes(kallisto_filt_sce_ed_v19,threshold_minumun_gene_counts,threshold_cells_detected )
+cellRanger_top_genes_v19 <- top_genes(cellRanger_filt_sce_ed_v19,threshold_minumun_gene_counts,threshold_cells_detected )
+
+input_list_hg19_lncRNAs <- list(CellRanger = intersect(rownames(cellRanger_top_genes_v19),lncrna_ens_ids_v19), Kallisto = intersect(rownames(kallisto_top_genes_v19),lncrna_ens_ids_v19))
+ratio_lncRNAs_v19 <- length(setdiff(input_list_hg19_lncRNAs$Kallisto, input_list_hg19_lncRNAs$CellRanger))/length(intersect(input_list_hg19_lncRNAs$Kallisto, input_list_hg19_lncRNAs$CellRanger))
+
+input_list_hg19_PCs <- list(CellRanger = intersect(rownames(cellRanger_top_genes_v19),protein_coding_ens_ids_v19), Kallisto = intersect(rownames(kallisto_top_genes_v19),protein_coding_ens_ids_v19))
+ratio_PCs_v19 <- length(setdiff(input_list_hg19_PCs$Kallisto, input_list_hg19_PCs$CellRanger))/length(intersect(input_list_hg19_PCs$Kallisto, input_list_hg19_PCs$CellRanger))
+
+# NONCODE (v5)
+cellRanger_NONCODE <- CreateSeuratObject(Read10X(data.dir = "/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/NONCODE/01.CellRanger/Parent_NGSC3_DI_PBMC/outs/raw_feature_bc_matrix", gene.column = 1), project = "cellRanger")
+kallisto_NONCODE <- CreateSeuratObject(BUSpaRse::read_count_output("/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/NONCODE/01.Kallisto/output_bus_transcriptome/bustools_results", name = "cells_genes_NO_multimapping"), project = "kallisto")
+
+cellRanger_NONCODE <- as.SingleCellExperiment(cellRanger_NONCODE)
+kallisto_NONCODE <- as.SingleCellExperiment(kallisto_NONCODE)
+
+universe_genes <- intersect(rownames(cellRanger_NONCODE), rownames(kallisto_NONCODE))
+cellRanger_NONCODE <- cellRanger_NONCODE[universe_genes,]
+kallisto_NONCODE <- kallisto_NONCODE[universe_genes,]
+
+qc <- function(pipeline )
+{
+  sce <- pipeline  
+  stats <- perCellQCMetrics(sce)
+  sum_log=data.frame(log10(stats$sum))
+  detected_log=data.frame(log10(stats$detected))
+  colData(sce) <- c(colData(sce),stats,sum_log,detected_log)
+  
+  return(sce)
+}
+cellRanger_sce_NONCODE <- qc(cellRanger_NONCODE)
+kallisto_sce_NONCODE <- qc(kallisto_NONCODE)
+
+cellRanger_filt_sce_ed_NONCODE <- emptydrops_filt(cellRanger_NONCODE, lower_ED = 100, EmptyDrops_FDR_thres = 0.0001 )
+kallisto_filt_sce_ed_NONCODE <- emptydrops_filt(kallisto_NONCODE, lower_ED = 100, EmptyDrops_FDR_thres = 0.0001 )
+
+cellRanger_filt_sce_ed_nodoubs_NONCODE <- doublet_analysis(cellRanger_filt_sce_ed_NONCODE)
+cellRanger_filt_sce_ed_nodoubs_NONCODE <- cellRanger_filt_sce_ed_nodoubs_NONCODE[,cellRanger_filt_sce_ed_nodoubs_NONCODE$isDoublet == F]
+kallisto_filt_sce_ed_nodoubs_NONCODE <- doublet_analysis(kallisto_filt_sce_ed_NONCODE)
+kallisto_filt_sce_ed_nodoubs_NONCODE <- kallisto_filt_sce_ed_nodoubs_NONCODE[,kallisto_filt_sce_ed_nodoubs_NONCODE$isDoublet == F]
+
+f <- function(sce, cells_max_threshold, cells_min_genes_detected_threshold)
+{
+    total_max_expression <- sce$nCount_RNA > cells_max_threshold
+    total_min_genes_detected <- sce$nFeature_RNA < cells_min_genes_detected_threshold
+
+    discard <-  total_max_expression  | total_min_genes_detected
+    print(table(discard))
+    print(DataFrame(total_max_expression=sum(total_max_expression),total_min_genes_detected=sum(total_min_genes_detected), Total=sum(discard)))
+    sce$discard <- discard
+    #filter and normalize data
+    sce_filt <- sce[,discard==F]
+
+    sce_filt <- logNormCounts(sce_filt)
+
+    return(sce_filt)
+}
+
+cellRanger_filt_sce_NONCODE <- f(cellRanger_filt_sce_ed_nodoubs_NONCODE, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+kallisto_filt_sce_NONCODE <- f(kallisto_filt_sce_ed_nodoubs_NONCODE, cells_max_threshold = high_threshold_cell_counts, cells_min_genes_detected_threshold = cells_min_genes_detected_threshold)
+
+cellRanger_top_genes_NONCODE <- top_genes(cellRanger_filt_sce_NONCODE,threshold_minumun_gene_counts,threshold_cells_detected )
+kallisto_top_genes_NONCODE <- top_genes(kallisto_filt_sce_NONCODE,threshold_minumun_gene_counts,threshold_cells_detected )
+input_list_NONCODE <- list(CellRanger = rownames(cellRanger_top_genes_NONCODE), Kallisto =rownames(kallisto_top_genes_NONCODE))
+ratio_lncRNAs_NONCODE <- length(setdiff(input_list_NONCODE$Kallisto, input_list_NONCODE$CellRanger))/length(intersect(input_list_NONCODE$Kallisto, input_list_NONCODE$CellRanger))
+
+
+# Ratio of = Number of Kallisto exclusive lncRNAs / Number of commonly detected lncRNAs
+df <- data.frame(assembly = c("GENCODE_hg19", "GENCODE_hg38_v37","GENCODE_hg38_","NONCODE"),Ratio_exclusive_common = c(ratio_lncRNAs_v19/ratio_lncRNAs_v19, ratio_lncRNAs_v38/ratio_lncRNAs_v19, ratio_lncRNAs_/ratio_lncRNAs_v19, ratio_lncRNAs_NONCODE/ratio_lncRNAs_v19))
+pdf("ratios_exclusive_common_lncRNAs.pdf", width = 10)
+no_theme <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
+ggplot(df, aes(x=assembly, y=Ratio_exclusive_common, fill=assembly)) + 
+  geom_bar(stat="identity",color="black",show.legend = FALSE) +no_theme + theme(axis.title.y = element_text(size=15, hjust = 0.5, vjust = -1),plot.title = element_text(hjust = 0.5, size = 14, face="bold"),axis.text=element_text(size=12, color="black")) + labs(title="Ratio exclusive to common lncRNAs", x="Pipeline", y = "Ratio (norm to GENCODE_hg19)") + ylim(0, 1) + scale_x_discrete(limits=c("GENCODE_hg19", "GENCODE_hg38_v37","GENCODE_hg38_","NONCODE"))
+dev.off()
+# Also calculate the ratios for protein-coding genes
+df <- data.frame(assembly = c("GENCODE_hg19", "GENCODE_hg38_v37","GENCODE_hg38_"),Ratio_exclusive_common = c(ratio_PCs_v19/ratio_PCs_v19, ratio_PCs_v38/ratio_PCs_v19, ratio_PCs_/ratio_PCs_v19))
+pdf("ratios_exclusive_common_PCs.pdf", width = 10)
+no_theme <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
+ggplot(df, aes(x=assembly, y=Ratio_exclusive_common, fill=assembly)) + 
+  geom_bar(stat="identity",color="black",show.legend = FALSE) +no_theme + theme(axis.title.y = element_text(size=15, hjust = 0.5, vjust = -1),plot.title = element_text(hjust = 0.5, size = 14, face="bold"),axis.text=element_text(size=12, color="black")) + labs(title="Ratio exclusive to common protein-coding", x="Pipeline", y = "Ratio (norm to GENCODE_hg19)") + ylim(0, 1) + scale_x_discrete(limits=c("GENCODE_hg19", "GENCODE_hg38_v37","GENCODE_hg38_"))
+dev.off()
+
+# Also represent as UpSet plots
+#lncRNAs
+
+all_sce_melted <- as.data.frame(cbind(as.character(c(rep("kallisto",length(input_list_hg19_lncRNAs[[2]])),rep("kallisto",length(input_list_lncRNAs[[2]])),rep("kallisto",length(input_list__lncRNAs[[2]])),rep("kallisto",length(input_list_NONCODE[[2]])),rep("CellRanger",length(input_list_hg19_lncRNAs[[1]])),rep("CellRanger",length(input_list_lncRNAs[[1]])),rep("CellRanger",length(input_list__lncRNAs[[1]])),rep("CellRanger",length(input_list_NONCODE[[1]])))),as.character(c(input_list_hg19_lncRNAs[[2]],input_list_lncRNAs[[2]], input_list__lncRNAs[[2]],input_list_NONCODE[[2]],input_list_hg19_lncRNAs[[1]],input_list_lncRNAs[[1]], input_list__lncRNAs[[1]],input_list_NONCODE[[1]])),as.character(c(rep("GENCODE_hg19",length(input_list_hg19_lncRNAs[[2]])),rep("GENCODE_hg38_v37",length(input_list_lncRNAs[[2]])),rep("GENCODE_hg38_",length(input_list__lncRNAs[[2]])),rep("NONCODE",length(input_list_NONCODE[[2]])), rep("GENCODE_hg19",length(input_list_hg19_lncRNAs[[1]])),rep("GENCODE_hg38_v37",length(input_list_lncRNAs[[1]])),rep("GENCODE_hg38_",length(input_list__lncRNAs[[1]])),rep("NONCODE",length(input_list_NONCODE[[1]]))))))
+colnames(all_sce_melted) <- c("ident","gene_id", "Assembly")
+
+# Represent as %of the total number of features detected in each SCE object
+pdf("upset_plot_lncRNAs_250counts_in_25_cells.pdf")
+all_sce_melted_tbl=tbl_df(all_sce_melted)
+all_sce_melted_tbl %>%
+  group_by(gene_id,Assembly) %>%
+  summarize(ident = list(ident)) %>%
+  ggplot(aes(x = ident,fill=Assembly)) +
+    geom_bar(aes(y = after_stat(comp_pct(count, PANEL, fill))), position="dodge")  +
+    scale_x_upset(order_by = "degree", reverse = T) + theme_classic() + theme(plot.margin = margin(1,0.5,0.5,2, "cm")) + ylab("Percentage of detected lncRNAs for each assembly")
+dev.off()
+
+all_sce_melted <- as.data.frame(cbind(as.character(c(rep("kallisto",length(input_list_hg19_PCs[[2]])),rep("kallisto",length(input_list_PCs[[2]])),rep("kallisto",length(input_list_v45_PCs[[2]])),rep("CellRanger",length(input_list_hg19_PCs[[1]])),rep("CellRanger",length(input_list_PCs[[1]])),rep("CellRanger",length(input_list_v45_PCs[[1]])))),as.character(c(input_list_hg19_PCs[[2]],input_list_PCs[[2]], input_list_v45_PCs[[2]],input_list_hg19_PCs[[1]],input_list_PCs[[1]], input_list_v45_PCs[[1]])),as.character(c(rep("GENCODE_hg19",length(input_list_hg19_PCs[[2]])),rep("GENCODE_hg38_v37",length(input_list_PCs[[2]])),rep("GENCODE_hg38_",length(input_list_v45_PCs[[2]])), rep("GENCODE_hg19",length(input_list_hg19_PCs[[1]])),rep("GENCODE_hg38_v37",length(input_list_PCs[[1]])),rep("GENCODE_hg38_",length(input_list_v45_PCs[[1]]))))))
+colnames(all_sce_melted) <- c("ident","gene_id", "Assembly")
+
+# Represent as %of the total number of features detected in each SCE object
+pdf("upset_plot_PCs_250counts_in_25_cells.pdf")
+all_sce_melted_tbl=tbl_df(all_sce_melted)
+all_sce_melted_tbl %>%
+  group_by(gene_id,Assembly) %>%
+  summarize(ident = list(ident)) %>%
+  ggplot(aes(x = ident,fill=Assembly)) +
+    geom_bar(aes(y = after_stat(comp_pct(count, PANEL, fill))), position="dodge")  +
+    scale_x_upset(order_by = "degree", reverse = T) + theme_classic() + theme(plot.margin = margin(1,0.5,0.5,2, "cm")) + ylab("Percentage of detected protein-coding genes for each assembly")
+dev.off()
+
+
+
+
 
 #####################################################################################################################################################################
 #####################################################################################################################################################################
@@ -261,6 +473,7 @@ cellRanger_sce_filt_clus <- pbmc_datasets_updated[["cellRanger"]]
 STARsolo_sce_filt_clus <- pbmc_datasets_updated[["STARsolo"]]
 kallisto_sce_filt_clus <- pbmc_datasets_updated[["kallisto"]]
 alevin_sce_filt_clus <- pbmc_datasets_updated[["Alevin"]] 
+
 
 
 
