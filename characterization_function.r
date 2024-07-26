@@ -341,6 +341,94 @@ ratios_repeats <- function(final_repeats_percentage, dataset_name)
   return(final_repeats)
 }
 
+percentage_of_TE <- function(TE_GR, GR_object)
+{
+    TE_common_genes <- GenomicRanges::intersect(TE_GR,GR_object,ignore.strand = F)
+    a=as.data.frame(TE_common_genes)
+    b=as.data.frame(GR_object)
+    return(100*sum(a$width)/sum(b$width))
+}
+
+TE_results <- function(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, lncrna_names, protein_coding_names,gene_name="gene_name",hg38_TE,exons_longest_transcript)
+{
+    final_TE <- data.frame(matrix(ncol = 4, nrow = 0))
+    colnames(final_TE) <- c("ALL_genes","LncRNAs","Protein-coding")
+    for (j in 1:length(threshold_minumun_gene_counts_v))
+    {
+        threshold_minumun_gene_counts <- threshold_minumun_gene_counts_v[j]
+        threshold_cells_detected <- threshold_cells_detected_v[j]
+        print(paste("Threshold of minimun expression:",threshold_minumun_gene_counts))
+
+        kallisto_top_genes <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+        cellRanger_top_genes <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+        STARsolo_top_genes <- top_genes(STARsolo_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+        alevin_top_genes <- top_genes(alevin_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+        # Uniquely vs common
+        input_list <- list(CellRanger = rownames(cellRanger_top_genes), STARsolo = rownames(STARsolo_top_genes), Kallisto = rownames(kallisto_top_genes), Salmon = rownames(alevin_top_genes))
+        candidates_kallisto <- setdiff(input_list[[3]], c(input_list[[1]],input_list[[2]],input_list[[4]]))
+        common_genes <- unique(intersect(input_list[[3]],intersect(input_list[[1]],intersect(input_list[[2]],input_list[[4]]))))
+
+    if(gene_name=="gene_name")
+    {
+        exons_common_genes <- exons_longest_transcript[which(exons_longest_transcript$gene_name %in%common_genes)]
+        exons_common_genes_lncRNAs <- exons_common_genes[which(exons_common_genes$gene_name %in% lncrna_names)]
+        exons_common_genes_pc <- exons_common_genes[which(exons_common_genes$gene_name %in% protein_coding_names)]
+
+        exons_candidates_kallisto <- exons_longest_transcript[which(exons_longest_transcript$gene_name %in%candidates_kallisto)]
+        exons_candidates_kallisto_lncRNAs <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_name %in% lncrna_names)]
+        exons_candidates_kallisto_pc <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_name %in% protein_coding_names)]
+    }
+    else
+    {
+        exons_longest_transcript$gene_id <- gsub("\\..*","",exons_longest_transcript$gene_id)
+        protein_coding_names <- gsub("\\..*","",protein_coding_names) 
+        lncrna_names <- gsub("\\..*","",lncrna_names) 
+        exons_common_genes <- exons_longest_transcript[which(exons_longest_transcript$gene_id %in% gsub("\\..*","",common_genes))]
+        exons_common_genes_lncRNAs <- exons_common_genes[which(exons_common_genes$gene_id %in% gsub("\\..*","",lncrna_names))]
+        exons_common_genes_pc <- exons_common_genes[which(exons_common_genes$gene_id %in% gsub("\\..*","",protein_coding_names))]
+
+        exons_candidates_kallisto <- exons_longest_transcript[which(exons_longest_transcript$gene_id %in% gsub("\\..*","",candidates_kallisto))]
+        exons_candidates_kallisto_lncRNAs <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_id %in% gsub("\\..*","",lncrna_names))]
+        exons_candidates_kallisto_pc <- exons_candidates_kallisto[which(exons_candidates_kallisto$gene_id %in% gsub("\\..*","",protein_coding_names))]
+    }
+
+        TE_common_genes <- c(percentage_of_TE(hg38_TE,exons_common_genes),percentage_of_TE(hg38_TE,exons_common_genes_lncRNAs),percentage_of_TE(hg38_TE,exons_common_genes_pc))
+
+        TE_candidates_kallisto <- c(percentage_of_TE(hg38_TE,exons_candidates_kallisto),percentage_of_TE(hg38_TE,exons_candidates_kallisto_lncRNAs),percentage_of_TE(hg38_TE,exons_candidates_kallisto_pc))
+
+        TE_out <- as.data.frame(rbind(TE_common_genes,TE_candidates_kallisto))
+        rownames(TE_out) <- c(paste(threshold_minumun_gene_counts,"Common",sep="_"),paste(threshold_minumun_gene_counts,"Exclusive",sep="_"))
+        TE_out$threshold = threshold_minumun_gene_counts
+        final_TE <- rbind(final_TE,TE_out)
+    }
+    colnames(final_TE) <- c("ALL_genes","LncRNAs","Protein_coding","Threshold")
+    final_TE$type <- gsub(".*_","",rownames(final_TE))
+    final_TE$Threshold <- as.factor(final_TE$Threshold)
+
+    return(final_TE)
+}
+
+ratios_TE <- function(final_TE_percentage, dataset_name)
+{
+  final_TE <- data.frame(matrix(ncol = 3, nrow = 0))
+  for (i in levels(final_TE_percentage$Threshold))
+  {
+    ratio_exclusive_common_lncRNAs <- final_TE_percentage$LncRNAs[(final_TE_percentage$Threshold==i) & (final_TE_percentage$type=="Exclusive")]/final_TE_percentage$LncRNAs[(final_TE_percentage$Threshold==i) & (final_TE_percentage$type=="Common")]
+
+    ratio_exclusive_common_PCs <- final_TE_percentage$Protein_coding[(final_TE_percentage$Threshold==i) & (final_TE_percentage$type=="Exclusive")]/final_TE_percentage$Protein_coding[(final_TE_percentage$Threshold==i) & (final_TE_percentage$type=="Common")]
+
+    final_TE <- rbind(final_TE,c(ratio_exclusive_common_PCs,ratio_exclusive_common_lncRNAs,i))
+  }
+  colnames(final_TE) <- c("Protein_coding","LncRNAs","Threshold")
+  final_TE$Protein_coding <- as.numeric(final_TE$Protein_coding)
+  final_TE$LncRNAs <- as.numeric(final_TE$LncRNAs)
+  final_TE$dataset <- dataset_name
+
+  return(final_TE)
+}
+
+
 
 SEEKR_communities <- function(communities, candidates_kallisto, common_genes,ens_id=F,title,lncrnas_ids)
 {

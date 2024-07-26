@@ -94,6 +94,12 @@ n_proximal_exons_mouse$number_exons <- n_proximal_exons_mouse$number_proximal_ex
 human_repeats_cleaned <- rtracklayer::import(human_repeatMasker_cleaned_path)
 mouse_repeats_cleaned <- rtracklayer::import(mouse_repeatMasker_cleaned_path)
 
+# Load TE element annotation
+TE_human_path <- "/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/GRCh38_GENCODE_rmsk_TE.gtf.gz"
+TE_human <- rtracklayer::import(TE_human_path)
+TE_mouse_path <- "/home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode/GRCm39_GENCODE_rmsk_TE.gtf.gz"
+TE_mouse <- rtracklayer::import(TE_mouse_path)
+
 # load SEEKR data: For analyzing function of lncRNAs according to k-mer content
 seekr_6_communities_human <- load_SEEKR_communities(seekr_6_communities_human_path, hg38_ensembl_gtf)
 seekr_6_communities_mouse <- load_SEEKR_communities(seekr_6_communities_mouse_path, mouse_gtf)
@@ -137,6 +143,10 @@ number_proximal_exons_PBMCs <- number_exons_distributions(threshold_minumun_gene
 final_repeats_percentage_PBMCs <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_hg_10k_PBMCs <- ratios_repeats(final_repeats_percentage_PBMCs,"hg_10k_PBMCs")
 
+# TE content
+final_TE_percentage_PBMCs <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_hg_10k_PBMCs <- ratios_TE(final_TE_percentage_PBMCs,"hg_10k_PBMCs")
+
 # K-mer analysis (SEEKR)
 seekr_results_hg_10k_PBMCs <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
 
@@ -177,6 +187,10 @@ number_proximal_exons_Mouse_Brain <- number_exons_distributions(threshold_minumu
 # Repeat content
 final_repeats_percentage_Mouse_Brain <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus,lncrna_names_mouse,protein_coding_names_mouse,hg38_repeats=mouse_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_mouse)
 ratio_repeats_mm_1k_brain <- ratios_repeats(final_repeats_percentage_Mouse_Brain,"mm_1k_brain")
+
+# TE content
+final_TE_percentage_Mouse_Brain <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus,lncrna_names_mouse,protein_coding_names_mouse,hg38_TE=TE_mouse, exons_longest_transcript = exons_longest_transcripts_mouse)
+ratio_TE_mm_1k_brain <- ratios_TE(final_TE_percentage_Mouse_Brain,"mm_1k_brain")
 
 # K-mer analysis (SEEKR)
 seekr_results_mm_1k_brain <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_sce_filt_clus, cellRanger_sce_filt_clus, STARsolo_sce_filt_clus, alevin_sce_filt_clus, seekr_6_communities_mouse,lncrnas_ids = lncrna_names_mouse )
@@ -260,6 +274,10 @@ number_proximal_exons_intestine_pool1 <- number_exons_distributions(threshold_mi
 final_repeats_percentage_intestine_pool1 <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_intestine_pool1 <- ratios_repeats(final_repeats_percentage_intestine_pool1,"hg_intestine_1")
 
+# TE content
+final_TE_percentage_intestine_pool1 <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_intestine_pool1 <- ratios_TE(final_TE_percentage_intestine_pool1,"hg_intestine_1")
+
 # K-mer analysis (SEEKR)
 seekr_results_intestine_pool1 <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, cellRanger_intestine_pool1_ed_filt, seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
 
@@ -285,6 +303,10 @@ number_proximal_exons_intestine_pool2 <- number_exons_distributions(threshold_mi
 # Repeat content
 final_repeats_percentage_intestine_pool2 <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_intestine_pool2 <- ratios_repeats(final_repeats_percentage_intestine_pool2,"hg_intestine_2")
+
+# TE content
+final_TE_percentage_intestine_pool2 <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_intestine_pool2 <- ratios_TE(final_TE_percentage_intestine_pool2,"hg_intestine_2")
 
 # K-mer analysis (SEEKR)
 seekr_results_intestine_pool2 <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, cellRanger_intestine_pool2_ed_filt, seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
@@ -312,6 +334,10 @@ number_proximal_exons_healthy_lung <- number_exons_distributions(threshold_minum
 final_repeats_percentage_healthy_lung <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_healthy_lung <- ratios_repeats(final_repeats_percentage_healthy_lung,"hg_lung_healthy_1")
 
+# TE content
+final_TE_percentage_healthy_lung <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_healthy_lung <- ratios_TE(final_TE_percentage_healthy_lung,"hg_lung_healthy_1")
+
 # K-mer analysis (SEEKR)
 seekr_results_healthy_lung <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt, cellRanger_healthy_lung_ed_filt,  seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
 
@@ -337,6 +363,10 @@ number_proximal_exons_healthy_lung_GSM4037316 <- number_exons_distributions(thre
 # Repeat content
 final_repeats_percentage_healthy_lung_GSM4037316 <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_healthy_lung_GSM4037316 <- ratios_repeats(final_repeats_percentage_healthy_lung_GSM4037316,"hg_lung_healthy_2")
+
+# TE content
+final_TE_percentage_healthy_lung_GSM4037316 <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_healthy_lung_GSM4037316 <- ratios_TE(final_TE_percentage_healthy_lung_GSM4037316,"hg_lung_healthy_2")
 
 # K-mer analysis (SEEKR)
 seekr_results_healthy_lung_GSM4037316 <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, cellRanger_healthy_lung_GSM4037316_ed_filt, seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
@@ -364,6 +394,10 @@ number_proximal_exons_pulmonary_fibrosis <- number_exons_distributions(threshold
 final_repeats_percentage_pulmonary_fibrosis <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_pulmonary_fibrosis <- ratios_repeats(final_repeats_percentage_pulmonary_fibrosis,"hg_lung_fibrosis")
 
+# TE content
+final_TE_percentage_pulmonary_fibrosis <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_pulmonary_fibrosis <- ratios_TE(final_TE_percentage_pulmonary_fibrosis,"hg_lung_fibrosis")
+
 # K-mer analysis (SEEKR)
 seekr_results_pulmonary_fibrosis <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, cellRanger_pulmonary_fibrosis_ed_filt, seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
 
@@ -389,6 +423,10 @@ number_proximal_exons_PBMCs_5K <- number_exons_distributions(threshold_minumun_g
 # Repeat content
 final_repeats_percentage_PBMCs_5K <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_repeats=human_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_human)
 ratio_repeats_PBMCs_5K <- ratios_repeats(final_repeats_percentage_PBMCs_5K,"hg_5k_PBMCs")
+
+# TE content 
+final_TE_percentage_PBMCs_5K <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt,lncrna_names_human,protein_coding_names_human,hg38_TE=TE_human, exons_longest_transcript = exons_longest_transcripts_human)
+ratio_TE_PBMCs_5K <- ratios_TE(final_TE_percentage_PBMCs_5K,"hg_5k_PBMCs")
 
 # K-mer analysis (SEEKR)
 seekr_results_PBMCs_5K <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt, cellRanger_PBMCs_5K_ed_filt,  seekr_6_communities_human,lncrnas_ids = lncrna_names_human )
@@ -416,6 +454,10 @@ number_proximal_exons_PBMCs_mouse <- number_exons_distributions(threshold_minumu
 # Repeat content
 final_repeats_percentage_PBMCs_mouse <- repeats_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt,lncrna_names_mouse,protein_coding_names_mouse,hg38_repeats=mouse_repeats_cleaned, exons_longest_transcript = exons_longest_transcripts_mouse)
 ratio_repeats_PBMCs_mouse <- ratios_repeats(final_repeats_percentage_PBMCs_mouse,"mm_10k_PBMCs")
+
+# TE content
+final_TE_percentage_PBMCs_mouse <- TE_results(threshold_minumun_gene_counts_v,threshold_cells_detected_v, kallisto_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt,lncrna_names_mouse,protein_coding_names_mouse,hg38_TE=TE_mouse, exons_longest_transcript = exons_longest_transcripts_mouse)
+ratio_TE_PBMCs_mouse <- ratios_TE(final_TE_percentage_PBMCs_mouse,"mm_10k_PBMCs")
 
 # K-mer analysis (SEEKR)
 seekr_results_PBMCs_mouse <- SEEKR_results(threshold_minumun_gene_counts_v, threshold_cells_detected_v, kallisto_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, cellRanger_PBMCs_mouse_ed_filt, seekr_6_communities_mouse,lncrnas_ids = lncrna_names_mouse )
@@ -549,6 +591,30 @@ dev.off()
 t.test(repeat_ratio_df$Protein_coding, repeat_ratio_df$LncRNAs, alternetive = "greater")
 
 ##############################################################################################################################################################
+# 4 - Extra Transposable element (TE) content
+TE_ratio_df <- rbind(ratio_TE_hg_10k_PBMCs, ratio_TE_mm_1k_brain, ratio_TE_intestine_pool1, ratio_TE_intestine_pool2, ratio_TE_healthy_lung, ratio_TE_healthy_lung_GSM4037316, ratio_TE_pulmonary_fibrosis, ratio_TE_PBMCs_5K, ratio_TE_PBMCs_mouse )
+TE_ratio_df$Threshold <- factor(TE_ratio_df$Threshold, levels = c("25","50", "100","250"))
+TE_ratio_df$dataset <- factor(TE_ratio_df$dataset, levels = c("hg_10k_PBMCs","mm_1k_brain", "hg_lung_healthy_1","hg_lung_healthy_2","hg_5k_PBMCs","hg_intestine_1","hg_intestine_2","mm_10k_PBMCs","hg_lung_fibrosis"))
+#change dataset labels to match those of fig2
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_lung_healthy_1'] <- 'Healthy_lung_GSM5020383'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_lung_healthy_2'] <- 'Healthy_lung_GSM4037316'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_5k_PBMCs'] <- 'Human_5k_PBMCs'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_10k_PBMCs'] <- 'Human_10k_PBMCs'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_intestine_1'] <- 'Intestine_GSM4808339'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_intestine_2'] <- 'Intestine_GSM4808348'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='mm_10k_PBMCs'] <- 'Mouse_10k_PBMCs'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='mm_1k_brain'] <- 'Mouse_1k_Brain'
+levels(TE_ratio_df$dataset)[levels(TE_ratio_df$dataset)=='hg_lung_fibrosis'] <- 'Pulmonary_fibrosis_GSM4037320'
+TE_ratio_df$dataset <- factor(TE_ratio_df$dataset, levels = c("Healthy_lung_GSM5020383","Healthy_lung_GSM4037316", "Human_5k_PBMCs","Human_10k_PBMCs","Intestine_GSM4808339","Intestine_GSM4808348","Mouse_1k_Brain","Mouse_10k_PBMCs","Pulmonary_fibrosis_GSM4037320"))
+
+pdf("TE_content_common_vs_exclusive.pdf")
+p1 <- ggplot(TE_ratio_df,aes(Threshold, y = LncRNAs, fill = dataset,color=dataset)) +geom_jitter(width=0.3, height=0,size=3) +theme_classic() +ggtitle("LncRNAs") +ylab("Ratio of TE content exclusive vs common") + xlab("Defined threshold of expression") +theme(axis.text=element_text(size=14), axis.title=element_text(size=15), plot.title = element_text(size = 16)) +ylim(0,3.5) +coord_flip()
+p1
+p2 <- ggplot(TE_ratio_df,aes(Threshold, y = Protein_coding, fill = dataset,color = dataset)) +geom_jitter(width=0.3, height=0,size=3) +theme_classic() +ggtitle("Protein-coding genes") +ylab("Ratio of TE content exclusive vs common") + xlab("Defined threshold of expression") +theme(axis.text=element_text(size=14), axis.title=element_text(size=15), plot.title = element_text(size = 16))+ylim(0,3.5) +coord_flip()
+p2 
+dev.off()
+
+##############################################################################################################################################################
 # 5. K-mer content (SEEKR)
 all_datasets_250 <- rbind(main_seekr_object(seekr_results_hg_10k_PBMCs, "hg_10k_PBMCs", 250),main_seekr_object(seekr_results_mm_1k_brain, "mm_1k_brain", 250),main_seekr_object(seekr_results_intestine_pool1, "hg_intestine_1", 250),main_seekr_object(seekr_results_intestine_pool2, "hg_intestine_2", 250),main_seekr_object(seekr_results_healthy_lung, "hg_lung_healthy_1", 250),main_seekr_object(seekr_results_healthy_lung_GSM4037316, "hg_lung_healthy_2", 250),main_seekr_object(seekr_results_pulmonary_fibrosis, "hg_lung_fibrosis", 250),main_seekr_object(seekr_results_PBMCs_5K, "hg_5k_PBMCs", 250),main_seekr_object(seekr_results_PBMCs_mouse, "mm_10k_PBMCs", 250))
 pdf("seekr_barplot_t250.pdf",width = 22, height = 8)
@@ -586,17 +652,17 @@ violin_plot_SI_ob2(all_datasets_250,hypothesis="greater")
 dev.off()
 
 ##############################################################################################################################################################
-# 7. SI of exclusive lncRNAs vs all protein-coding genes
+# 7. Exclusive lncRNAs that overlap with CRISPRi functionally targeted lncRNAs
 options(scipen=0)
 all_datasets <- rbind(counts_crispr(all_crispr_data_intersection_PBMCs, "hg_10k_PBMCs"),counts_crispr(all_crispr_data_intersection_intestine_pool1, "hg_intestine_1"),counts_crispr(all_crispr_data_intersection_intestine_pool2, "hg_intestine_2"),counts_crispr(all_crispr_data_intersection_healthy_lung, "hg_lung_healthy_1"),counts_crispr(all_crispr_data_intersection_healthy_lung_GSM4037316, "hg_lung_healthy_2"),counts_crispr(all_crispr_data_intersection_pulmonary_fibrosis, "hg_lung_fibrosis"),counts_crispr(all_crispr_data_intersection_PBMCs_5K, "hg_5k_PBMCs"))
+all_datasets$FDR = signif(p.adjust(all_datasets$p_value_hypergeom, method="BH"),digits=3)
 supp_table <- rbind(generate_supp_table(all_crispr_data_intersection_PBMCs, "hg_10k_PBMCs"),generate_supp_table(all_crispr_data_intersection_intestine_pool1, "hg_intestine_1"),generate_supp_table(all_crispr_data_intersection_intestine_pool2, "hg_intestine_2"),generate_supp_table(all_crispr_data_intersection_healthy_lung, "hg_lung_healthy_1"),generate_supp_table(all_crispr_data_intersection_healthy_lung_GSM4037316, "hg_lung_healthy_2"),generate_supp_table(all_crispr_data_intersection_pulmonary_fibrosis, "hg_lung_fibrosis"),generate_supp_table(all_crispr_data_intersection_PBMCs_5K, "hg_5k_PBMCs"))
 write.table(supp_table, "intersection_lncRNAs_crispr_Liu_et_al.txt", row.names = F, quote = F, sep = "\t" )
 write.table(crispr_data, "crispr_data_Liu_et_al.txt", row.names = F, quote = F, sep = "\t" ) # not sure if I need to add it as it is already published
 
-pdf("barplot_intersection_crispr_Liu_et_al.pdf",width = 20, height = 7)
+pdf("FDR_barplot_intersection_crispr_Liu_et_al.pdf",width = 20, height = 7)
 #my_df <- df_vp[df_vp$k_clus==25,]
 colors <- c("#D4B996FF","#A07855FF")
-a = all_datasets
 a$Threshold <- as.factor(a$Threshold)
-ggplot(a[a$features=="exclusive_kallisto",],aes(x = dataset, y = crispr_genes,fill = Threshold))  + geom_bar(stat="identity",width = 0.8,position=position_dodge())  + geom_text(aes(label=p_value_hypergeom), position = position_dodge(width = .8),vjust = -1)+ theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm')) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) +scale_fill_manual(values=c("#2E5266FF","#6E8898FF","#9FB1BCFF","#D3D0CBFF")) + ggtitle("Exclusive lncRNAs found by Kallisto")
+ggplot(a[a$features=="exclusive_kallisto",],aes(x = dataset, y = crispr_genes,fill = Threshold))  + geom_bar(stat="identity",width = 0.8,position=position_dodge())  + geom_text(aes(label=FDR), position = position_dodge(width = .8),vjust = -1)+ theme_classic() + theme(axis.text = element_text(size=13), axis.title.x = element_text(size=14))+ theme(legend.text=element_text(size=12),legend.title=element_blank(),legend.key.size = unit(1.5, 'cm')) + theme( strip.background = element_blank(),strip.placement = "outside",strip.text.x = element_text(angle = 45,size = 12) ) +scale_fill_manual(values=c("#2E5266FF","#6E8898FF","#9FB1BCFF","#D3D0CBFF")) + ggtitle("Exclusive lncRNAs found by Kallisto")
 dev.off()
