@@ -172,6 +172,40 @@ all_sce_melted$ident <- factor(all_sce$ident, levels = c("CellRanger","STARsolo"
 ggplot(all_sce_melted, aes(x=ident, y=subsets_protien_coding_detected, fill = ident)) + geom_violin(alpha = 1, scale = "width", width = 0.8) + scale_fill_manual(values = color_palette) + theme_classic() + scale_colour_manual(values = color_palette) + ggtitle("Detected protein coding genes/cell") + theme(plot.title = element_text(hjust = 0.5, size = 28),axis.text=element_text(size=17), axis.title=element_text(size=17, face = "bold")) + theme(legend.position = "none") + labs(y= "", x="")
 dev.off()
 
+# Test if detection is affected when matching expression levels of protein-coding genes and lncRNAs
+all_lncRNAs_expression <- c((rowSums(logcounts(cellRanger_filt_sce))[lncrna_ens_ids[lncrna_ens_ids %in% rownames(cellRanger_filt_sce)==T]]), (rowSums(logcounts(STARsolo_filt_sce))[lncrna_ens_ids[lncrna_ens_ids %in% rownames(STARsolo_filt_sce)==T]]), (rowSums(logcounts(kallisto_filt_sce))[lncrna_ens_ids[lncrna_ens_ids %in% rownames(kallisto_filt_sce)==T]]), (rowSums(logcounts(alevin_filt_sce))[lncrna_ens_ids[lncrna_ens_ids %in% rownames(alevin_filt_sce)==T]]))
+
+for (i in c(0.5,1,2))
+{
+  max_gene_expression <- mean(all_lncRNAs_expression)+i*sd(all_lncRNAs_expression)
+
+  cellRanger_filt_genes <- filtered_gene_expression(sce=cellRanger_filt_sce, max_gene_expression=max_gene_expression, lncrna_ens_ids,protein_coding_ens_ids )
+  STARsolo_filt_genes <- filtered_gene_expression(sce=STARsolo_filt_sce, max_gene_expression=max_gene_expression, lncrna_ens_ids,protein_coding_ens_ids )
+  kallisto_filt_genes <- filtered_gene_expression(sce=kallisto_filt_sce, max_gene_expression=max_gene_expression, lncrna_ens_ids,protein_coding_ens_ids )
+  alevin_filt_genes <- filtered_gene_expression(sce=alevin_filt_sce, max_gene_expression=max_gene_expression, lncrna_ens_ids,protein_coding_ens_ids )
+
+  detected_lncRNAs_CellRanger <- colSums(logcounts(cellRanger_filt_genes[intersect(rownames(cellRanger_filt_genes),lncrna_ens_ids)],)!=0)
+  detected_lncRNAs_STARsolo <- colSums(logcounts(STARsolo_filt_genes[intersect(rownames(STARsolo_filt_genes),lncrna_ens_ids)],)!=0)
+  detected_lncRNAs_kallisto <- colSums(logcounts(kallisto_filt_genes[intersect(rownames(kallisto_filt_genes),lncrna_ens_ids)],)!=0)
+  detected_lncRNAs_alevin <- colSums(logcounts(alevin_filt_genes[intersect(rownames(alevin_filt_genes),lncrna_ens_ids)],)!=0)
+
+  detected_PCs_CellRanger <- colSums(logcounts(cellRanger_filt_genes[intersect(rownames(cellRanger_filt_genes),protein_coding_ens_ids)],)!=0)
+  detected_PCs_STARsolo <- colSums(logcounts(STARsolo_filt_genes[intersect(rownames(STARsolo_filt_genes),protein_coding_ens_ids)],)!=0)
+  detected_PCs_kallisto <- colSums(logcounts(kallisto_filt_genes[intersect(rownames(kallisto_filt_genes),protein_coding_ens_ids)],)!=0)
+  detected_PCs_alevin <- colSums(logcounts(alevin_filt_genes[intersect(rownames(alevin_filt_genes),protein_coding_ens_ids)],)!=0)
+
+  all_sce_lncRNAs_detected <- combine_4sce(detected_lncRNAs_CellRanger, detected_lncRNAs_STARsolo, detected_lncRNAs_kallisto, detected_lncRNAs_alevin, "detected_filtered_lncRNAs" )
+  all_sce_PCs_detected <- combine_4sce(detected_PCs_CellRanger, detected_PCs_STARsolo, detected_PCs_kallisto, detected_PCs_alevin, "detected_filtered_PCGs" )
+
+  pdf(paste("QC_lncRNAs_PCGs_similar_counts_mean_plus_",i,"sd.pdf",sep=""))
+  ggplot(all_sce_lncRNAs_detected, aes(x=ident, y=detected_filtered_lncRNAs, fill = ident)) + geom_violin(alpha = 1, scale = "width", width = 0.8) + scale_fill_manual(values = color_palette) + theme_classic() + scale_colour_manual(values = color_palette) + ggtitle("Filtered lncRNAs detected/cell") + theme(plot.title = element_text(hjust = 0.5, size = 28),axis.text=element_text(size=17), axis.title=element_text(size=17, face = "bold")) + theme(legend.position = "none") + labs(y= "", x="")
+
+  ggplot(all_sce_PCs_detected, aes(x=ident, y=detected_filtered_PCGs, fill = ident)) + geom_violin(alpha = 1, scale = "width", width = 0.8) + scale_fill_manual(values = color_palette) + theme_classic() + scale_colour_manual(values = color_palette) + ggtitle("Filtered PCGs detected/cell") + theme(plot.title = element_text(hjust = 0.5, size = 28),axis.text=element_text(size=17), axis.title=element_text(size=17, face = "bold")) + theme(legend.position = "none") + labs(y= "", x="")
+  dev.off()
+}
+
+
+
 # Overlap of detected cell per pipeline
 input_list <- list(CellRanger = colnames(cellRanger_filt_sce), STARsolo = colnames(STARsolo_filt_sce), Kallisto = colnames(kallisto_filt_sce), Salmon = colnames(alevin_filt_sce))
 pdf("upset_plot_cells_test.pdf", width = 8, height = 8)

@@ -29,6 +29,16 @@ doublet_analysis <- function(data)
   return(data)
 }
 
+filtered_gene_expression <- function(sce, max_gene_expression, lncrna_ens_ids,  protein_coding_ens_ids)
+{
+  lncRNAs_expression <- (rowSums(logcounts(sce))[lncrna_ens_ids[lncrna_ens_ids %in% rownames(sce)==T]])
+  PCGs_expression <- (rowSums(logcounts(sce))[protein_coding_ens_ids[protein_coding_ens_ids %in% rownames(sce)==T]])
+  filtered_lncRNAs <- names(lncRNAs_expression)[lncRNAs_expression < max_gene_expression]
+  filtered_PCGs <- names(PCGs_expression)[PCGs_expression < max_gene_expression]
+
+  return(sce[c(filtered_lncRNAs,filtered_PCGs ),])
+}
+
 Filtering <- function(sce, cells_mito_threshold, cells_max_threshold, cells_min_genes_detected_threshold)
 {
     total_max_mito_content <- sce$subsets_Mito_percent > cells_mito_threshold
@@ -64,6 +74,16 @@ Filtering_TNBC <- function(sce, cells_mito_threshold, cells_max_threshold, cells
     sce_filt <- logNormCounts(sce_filt)
 
     return(sce_filt)
+}
+
+combine_4sce <- function(sce1, sce2, sce3, sce4, type_eval)
+{
+  combined_sce <- as.data.frame(cbind(c(sce1, sce2, sce3, sce4),c(rep("CellRanger",length(sce1)),rep("STARsolo",length(sce2)),rep("Kallisto",length(sce3)), rep("Salmon",length(sce4)))))
+  colnames(combined_sce) <- c(type_eval,"ident")
+  combined_sce$ident <- as.character(combined_sce$ident)
+  combined_sce$ident <- factor(combined_sce$ident,  levels = c("CellRanger","STARsolo","Kallisto","Salmon"))
+  combined_sce[,1] <- as.numeric(combined_sce[,1])
+  return(combined_sce)
 }
 
 top_genes <- function(data,threshold_minumun_gene_counts,threshold_cells_detected)
@@ -144,7 +164,7 @@ kallisto_processing <- function(kallisto_dir,name, mito_gene)
     kallisto_data <- BUSpaRse::read_count_output(kallisto_dir, name = name)
     kallisto <- CreateSeuratObject(kallisto_data, project = "kallisto")
     kallisto <- as.SingleCellExperiment(kallisto)
-    kallisto_sce <- qc_metrics(pipeline = kallisto, mitochondrial_ens_ids = mito_gene, ribosomal_ens_ids = ribosomal_ens_ids)
+    kallisto_sce <- qc_metrics(pipeline = kallisto, mitochondrial_ens_ids = mito_gene)
 
     return(kallisto_sce)
 }
