@@ -3,7 +3,7 @@ cd /home/egonie/kike/phd/test_data/auxiliary_data/
 wget https://github.com/10XGenomics/cellranger/raw/master/lib/python/cellranger/barcodes/3M-february-2018.txt.gz
 
 cd ~/dato-activo/reference.genomes_kike/GRCh38/gencode/
-cat gencode.v37.annotation.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/gene_type.*//p' | sed 's/;//g' | sed 's/transcript_id //g'  | sed 's/"//g' | sed -e 's/ /\t/g' | awk '{print $2 "\t" $1}'  | grep '^ENST' | uniq > tr2g.tsv
+cat gencode.v37.annotation.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/gene_type.*//p' | sed 's/;//g' | sed 's/transcript_id //g'  | sed 's/"//g' | sed -e 's/ /\t/g' | awk '{print $2 "\t" $1}'  | grep '^ENSMUST' | uniq > tr2g.tsv
 
 # for the intronic annotation (in R)
 introns=read.table("~/dato-activo/reference.genomes_kike/GRCh38/gencode/kallisto_nuclei_introns_t2c.txt")
@@ -52,10 +52,37 @@ seekr_pearson 6mers_mouse.csv 6mers_mouse.csv -o correlations_all_lncRNAs_mouse_
 seekr_graph correlations_all_lncRNAs_mouse_kmers.csv 0.13 -g correlations_all_lncRNAs_mouse_kmers.gml -c SEEKR_communities_6mers.csv  # CREO QUE AHORA HA SALIDO! Igualmente hago el graph-based clustering
 
 
-# Get antisense lncRNAs to protein-coding gene
-# Get gtf of protein-coding genes
-cd ~/dato-activo/reference.genomes_kike/GRCh38/gencode/
-cat gencode.v37.annotation.gtf
+######################################################################################################################################
+##############################################  Parse NONCODE annotation  ############################################################
+######################################################################################################################################
+# Part of the parsing is indicated in auxiliary_data.r while other is in auxiliary_data.sh
+cd /home/egonie/dato-activo/reference.genomes_kike/GRCh38/NONCODE
+# Download from http://v5.noncode.org/download.php
+# I need to add the geneid to the gtf (in R)
+# remove all that have strand "."
+cat NONCODEv5_human_hg38_lncRNA_complete.gtf | awk '$7 == "." { next } { print }' > NONCODEv5_human_hg38_lncRNA_complete_cleaned.gtf
 
+# 2.1. Generate index
+# 2.1.1. Cell Ranger
+cellranger mkref --genome=GRCh38_CellRanger_NONCODE_complete_cleaned_ref --fasta=/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/GRCh38.primary_assembly_GENCODE.genome.fa  --genes=/home/egonie/dato-activo/reference.genomes_kike/GRCh38/NONCODE/NONCODEv5_human_hg38_lncRNA_complete_cleaned.gtf
+
+#2.1.2. Kallisto
+kallisto index -i transcriptome_index_kallisto_NONCODE.idx NONCODEv5_human.fa
+
+#2.2 Preprocess with Cell Ranger and Kallisto
+cd /home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/NONCODE
+#2.2.1. Cell Ranger
+cd 01.CellRanger
+cellranger count --id=Parent_NGSC3_DI_PBMC --transcriptome=/datos/huartelab/dato-activo/reference.genomes_kike/GRCh38/NONCODE/GRCh38_CellRanger_NONCODE_complete_cleaned_ref  --fastqs=/home/egonie/kike/phd/test_data/10X/Parent_NGSC3_DI_PBMC_fastqs/NONCODE/01.CellRanger --expect-cells=10000 --sample=Parent_NGSC3_DI_PBMC --localcores=8 --localmem=56320
+
+#2.2.2. Kallisto
+cd 01.Kallisto
+kallisto bus -i /home/egonie/dato-activo/reference.genomes_kike/GRCh38/NONCODE/transcriptome_index_kallisto_NONCODE.idx -o output_bus_transcriptome -x 10xv3 -t 8 Parent_NGSC3_DI_PBMC_R1_alldata.fastq.gz Parent_NGSC3_DI_PBMC_R2_alldata.fastq.gz
+# transcript to genes
+cat ~/dato-activo/reference.genomes_kike/GRCh38/NONCODE/NONCODEv5_human_hg38_lncRNA_complete.gtf | sed -n -e 's/^.*gene_id //p' | sed -n -e 's/FPKM.*//p' | sed 's/;//g' | sed 's/transcript_id //g'  | sed 's/"//g' | sed -e 's/ /\t/g' | awk '{print $2 "\t" $1}' | uniq > tr2g.tsv
+TENxV3_WHITELIST="/home/egonie/kike/phd/test_data/auxiliary_data/3M-february-2018.txt"
+mkdir bustools_results
+cd bustools_results
+bustools correct -w $TENxV3_WHITELIST -p ../output.bus | bustools sort -T temp/ -p - | bustools count -o cells_genes_NO_multimapping -g ../tr2g.tsv -e ../matrix.ec -t ../transcripts.txt --genecounts -
 
 
