@@ -646,3 +646,67 @@ get_index_df <- function(a)
   return(new_ct)
 }
 
+simulate_reads <- function(lncrna_ens_ids, modified_gtf, protein_coding_ens_ids, file_name, CB_10X, simulation_iteration, genome_fasta)
+{
+    lncrna_subset <- sample(lncrna_ens_ids, 1500)
+    lncRNA_gtf <- modified_gtf[modified_gtf$gene_id %in% lncrna_subset]
+    protein_coding_subset <- sample(protein_coding_ens_ids, 1500)
+    protein_coding_gtf <- modified_gtf[modified_gtf$gene_id %in% protein_coding_subset]
+    subsetted_ids <- c(lncrna_subset, protein_coding_subset)
+
+    coordinates_to_get_sequences <- GRanges(seqnames = "chr1", strand = c("+"),ranges = IRanges(start = c(1), width = 3))
+    coordinates_to_get_sequences$gene_id <- "ENSG1"
+
+    for (j in 1:3000)
+    {
+        print(j)
+        exons_subset <- exons[exons$gene_id == subsetted_ids[j]]
+        ranges(exons_subset)
+        number_of_reads_exon = round(2300/length(exons_subset))
+        for (k in 1:length(exons_subset))
+        {
+            possible_positions <- seq(start(exons_subset[k]), end(exons_subset[k])-92)
+            new_start = sample(possible_positions, number_of_reads_exon, replace = T)
+            chromosome <- rep(as.character(unique(seqnames(exons_subset))),length(new_start))
+            strand = rep(unique(as.character(strand(exons_subset))),length(new_start))
+            gr <- GRanges(seqnames = chromosome, strand = strand,ranges = IRanges(start = new_start, width = 91))
+            gr$gene_id <- subsetted_ids[j]
+            coordinates_to_get_sequences <- c(coordinates_to_get_sequences, gr)
+        }
+    }
+    paste("/home/egonie/data/egonie/phd/test_data/Minju_ha_nat_comm/", file_name, sep="")
+    saveRDS(list(coordinates_to_get_sequences, subsetted_ids),paste("/home/egonie/data/egonie/phd/test_data/Minju_ha_nat_comm/", file_name, sep=""))
+
+    # remove first row
+    genes_subsetted <- subsetted_ids
+    coordinates_to_get_sequences <- coordinates_to_get_sequences[-1]
+    # ADD CB
+    CB <- sample(CB_10X$V1,100)
+    CB_sequences <- sample(CB, length(coordinates_to_get_sequences), replace = T)
+    coordinates_to_get_sequences$CB <- CB_sequences
+
+    # Create REAL Matrix of expression that will be compared against Kallisto and Cell Ranger
+    gene_ids <- unique(hg38_ensembl_gtf$gene_id)
+    real_df <- matrix(0, nrow = length(gene_ids), ncol = length(CB))
+    rownames(real_df) <- gene_ids
+    counts <- table(coordinates_to_get_sequences$gene_id, coordinates_to_get_sequences$CB)
+    colnames(real_df) <- colnames(counts)
+    real_df[rownames(counts),] <- counts
+    saveRDS(real_df, paste("simulation",simulation_iteration,"_real_count_matrix.rds",sep=""))
+
+    #generate sequences
+    sequences = BSgenome::getSeq(genome_fasta, coordinates_to_get_sequences)
+
+    seqnames=seq(1452, 1452+length(sequences))
+    seqnames_final <- paste("A00519:593:H7LNLDSXY:1:1101:",seqnames,":1000 2:N:0:TCCGTTGGAT+NCGTTCTCGC",sep="")
+    names(sequences) <- seqnames_final[1:length(sequences)]
+
+    
+    writeXStringSet(sequences, paste("simulation",simulation_iteration,"_S1_L001_R2_001.fastq.gz",sep=""),append=FALSE,compress=TRUE, format="fastq")
+
+    UMI_B <- replicate(length(coordinates_to_get_sequences),randDNA(12))
+    sequence_R1 <- paste(CB_sequences, UMI_B, sep ="")
+    sequence_R1_DNA <- DNAStringSet(sequence_R1)
+    names(sequence_R1_DNA) <- seqnames_final[1:length(sequences)]
+    writeXStringSet(sequence_R1_DNA, paste("simulation",simulation_iteration,"_S1_L001_R1_001.fastq.gz",sep=""),append=FALSE,compress=TRUE, format="fastq")
+}
