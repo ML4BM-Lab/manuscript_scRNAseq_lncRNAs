@@ -239,7 +239,6 @@ input_list_PCs <- list(CellRanger = intersect(rownames(cellRanger_top_genes),pro
 ratio_PCs_v38 <- length(setdiff(input_list_PCs$Kallisto, input_list_PCs$CellRanger))/length(intersect(input_list_PCs$Kallisto, input_list_PCs$CellRanger))
 
 
-
 ##########################################################################################################################################################################
 # Detection of protein-coding genes & lncRNAs affected by more/less precise annotations (compare commonly detected vs exclusively detected)
 # 
@@ -288,7 +287,6 @@ ratio_lncRNAs_ <- length(setdiff(input_list__lncRNAs$Kallisto, input_list__lncRN
 
 input_list__PCs <- list(CellRanger = intersect(rownames(cellRanger_top_genes_),protein_coding_ens_ids_hg38_), Kallisto = intersect(rownames(kallisto_top_genes_),protein_coding_ens_ids_hg38_))
 ratio_PCs_ <- length(setdiff(input_list__PCs$Kallisto, input_list__PCs$CellRanger))/length(intersect(input_list__PCs$Kallisto, input_list__PCs$CellRanger))
-
 
 
 # hg19 v19
@@ -507,6 +505,44 @@ cellRanger_sce_filt_clus <- pbmc_datasets_updated[["cellRanger"]]
 STARsolo_sce_filt_clus <- pbmc_datasets_updated[["STARsolo"]]
 kallisto_sce_filt_clus <- pbmc_datasets_updated[["kallisto"]]
 alevin_sce_filt_clus <- pbmc_datasets_updated[["Alevin"]] 
+
+
+# Is there a difference in how intronic reads are treated? Test the overlap between the kmers of intronic sequences and the kmers of the exclusive/common genes. 
+kallisto_sce_filt_clus <- top_genes(kallisto_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+cellRanger_sce_filt_clus <- top_genes(cellRanger_sce_filt_clus,threshold_minumun_gene_counts,threshold_cells_detected )
+
+common_lncRNAs <- intersect(intersect(rownames(kallisto_top_genes), lncrna_names), intersect(rownames(cellRanger_top_genes), lncrna_names))
+exclusive_lncRNAs <- setdiff(intersect(rownames(kallisto_top_genes), lncrna_names), intersect(rownames(cellRanger_top_genes), lncrna_names))
+common_PCs <- intersect(intersect(rownames(kallisto_top_genes), protein_coding_names), intersect(rownames(cellRanger_top_genes), protein_coding_names))
+exclusive_PCs <- setdiff(intersect(rownames(kallisto_top_genes), protein_coding_names), intersect(rownames(cellRanger_top_genes), protein_coding_names))
+
+library(Biostrings)
+transcripts_fasta=readDNAStringSet("/home/egonie/dato-activo/reference.genomes_kike/GRCh38/gencode/gencode.v37.transcripts.fa")
+
+# test following k-mer length (k=31, k=50, k=70)
+kmer_lengths = c(31, 50, 70, 91)
+sequences_common_lncRNAs <- get_sequences(common_lncRNAs, transcripts_fasta)
+sequences_exclusive_lncRNAs <- get_sequences(exclusive_lncRNAs, transcripts_fasta)
+sequences_common_PCs <- get_sequences(common_PCs, transcripts_fasta)
+sequences_exclusive_PCs <- get_sequences(exclusive_PCs, transcripts_fasta)
+
+writeXStringSet(sequences_exclusive_lncRNAs, 'sequences_exclusive_lncRNAs_hg_10k_PBMCs.fa')
+writeXStringSet(sequences_common_lncRNAs, 'sequences_common_lncRNAs_hg_10k_PBMCs.fa')
+writeXStringSet(sequences_exclusive_PCs, 'sequences_exclusive_PCs_hg_10k_PBMCs.fa')
+writeXStringSet(sequences_common_PCs, 'sequences_common_PCs_hg_10k_PBMCs.fa')
+
+# The k-mer splits has been done in python (intronic_kmer_overlap.py). Plot % of detected k-mers with k=31,50,75,91 in exclusive & common lncRNAs and protein-coding genes
+df_pc <- data.frame(class = rep(c("common_protein_coding","exclusive_protein_coding"),4),k = c("31","31","50","50","75","75","91","91"), kmer_overlap = c(45.63, 44.63, 41.75, 41.28, 38.48, 38.19, 36.72, 36.71))
+df_l <- data.frame(class = rep(c("common_lncRNA","exclusive_lncRNA"),4),k = c("31","31","50","50","75","75","91","91"), kmer_overlap = c(66, 58, 63.07, 53.77, 60.05, 50.28, 58.5, 48.67))
+df <- rbind(df_l, df_pc)
+df$class <- factor(df$class, levels = c("common_lncRNA", "exclusive_lncRNA", "common_protein_coding","exclusive_protein_coding"))
+pdf("intronic_kmer_overlap_lineplot.pdf")
+no_theme <- theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), axis.line = element_line(colour = "black"))
+ggplot(df, aes(x=k, y=kmer_overlap, fill=class)) + 
+  geom_bar(stat="identity",position=position_dodge()) +no_theme + theme(axis.title.y = element_text(size=15, hjust = 0.5, vjust = -1),plot.title = element_text(hjust = 0.5, size = 14, face="bold"),axis.text=element_text(size=12, color="black")) + labs(title="Intronic k-mer overlap", x="k", y = "intronic k-mer overlap (%)") + ylim(0, 100) + scale_x_discrete(limits=c("31", "50","75","91"))
+dev.off()
+
+
 
 
 

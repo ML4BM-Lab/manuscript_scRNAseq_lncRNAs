@@ -26,6 +26,8 @@ pip install kb-python
 kb ref -i kallisto_nuclei_introns_index.idx -g kallisto_nuclei_introns_t2g.txt -f1 kallisto_nuclei_introns_cdna.fa -f2 kallisto_nuclei_introns_intron.fa -c1 kallisto_nuclei_introns_cdna_t2c.txt -c2 kallisto_nuclei_introns_t2c.txt --workflow lamanno -n 8 $hg38_gencode_genome_fasta $hg38_gencode_gtf
 cat kallisto_nuclei_introns_cdna.fa kallisto_nuclei_introns_intron.fa > kallisto_nuclei_cDNA_introns_ALL.fa
 kallisto index -i kallisto_nuclei_cDNA_introns.idx kallisto_nuclei_cDNA_introns_ALL.fa
+# get only intronic sequences for comparing the overlap between exclusive/common lncRNAs and intronic sequences
+cat kallisto_nuclei_cDNA_introns_ALL.fa | tail -n +468971 > intronic_sequences.fa
 
 # mm39
 mm39_gencode_genome_fasta="/home/egonie/dato-activo/reference.genomes_kike/GRCm39/gencode/GRCm39.primary_assembly.genome.fa"

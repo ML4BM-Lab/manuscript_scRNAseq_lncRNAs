@@ -76,6 +76,19 @@ Filtering_TNBC <- function(sce, cells_mito_threshold, cells_max_threshold, cells
     return(sce_filt)
 }
 
+get_sequences <- function(features, transcripts)
+{
+  positions_features <- c()
+  for (i in 1:length(features))
+  {
+    print(i)
+    positions_features <- c(positions_features,grep(features[i],names(transcripts))) 
+  }
+  sequences <- transcripts[positions_features]
+  return(sequences)
+}
+
+
 combine_4sce <- function(sce1, sce2, sce3, sce4, type_eval)
 {
   combined_sce <- as.data.frame(cbind(c(sce1, sce2, sce3, sce4),c(rep("CellRanger",length(sce1)),rep("STARsolo",length(sce2)),rep("Kallisto",length(sce3)), rep("Salmon",length(sce4)))))
